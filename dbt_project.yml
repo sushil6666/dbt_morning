@@ -19,10 +19,10 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-# dbt-cloud:
+dbt-cloud:
   # Opt in to dbt Cloud deferral only when a real environment ID is provided.
   # This avoids Fusion implicitly probing Cloud for a missing default deferral environment.
-  #defer-env-id: "{{ env_var('DBT_CLOUD_DEFER_ENV_ID', '') }}"
+  defer-env-id: "{{ env_var('DBT_CLOUD_DEFER_ENV_ID', '') }}"
 
 # Runs once at the very start of the entire dbt run (before any model builds)
 on-run-start:

@@ -1,0 +1,146 @@
+version: 2
+
+semantic_models:
+  - name: sales
+    description: Semantic model for in-park POS sales transactions.
+    model: ref('fct_sales')
+    defaults:
+      agg_time_dimension: visit_date
+    entities:
+      - name: transaction
+        type: primary
+        expr: transaction_id
+      - name: customer
+        type: foreign
+        expr: customer_id
+    dimensions:
+      - name: visit_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: category
+        type: categorical
+      - name: payment_method
+        type: categorical
+      - name: location
+        type: categorical
+      - name: is_weekend
+        type: categorical
+    measures:
+      - name: sales_amount
+        agg: sum
+        expr: total_amount
+      - name: items_sold
+        agg: sum
+        expr: quantity
+      - name: transaction_count
+        agg: count_distinct
+        expr: transaction_id
+
+  - name: visits
+    description: Semantic model for visit-level revenue and attendance.
+    model: ref('fct_visits')
+    defaults:
+      agg_time_dimension: visit_date
+    entities:
+      - name: visit
+        type: primary
+        expr: ticket_id
+      - name: customer
+        type: foreign
+        expr: customer_id
+    dimensions:
+      - name: visit_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: ticket_type
+        type: categorical
+      - name: is_weekend
+        type: categorical
+    measures:
+      - name: visit_count
+        agg: count_distinct
+        expr: ticket_id
+      - name: total_visit_spend
+        agg: sum
+        expr: total_visit_spend
+      - name: ticket_revenue
+        agg: sum
+        expr: ticket_price
+      - name: in_park_spend
+        agg: sum
+        expr: in_park_spend
+
+  - name: customers
+    description: Customer segmentation attributes for metric slicing.
+    model: ref('dim_customers')
+    entities:
+      - name: customer
+        type: primary
+        expr: customer_id
+    dimensions:
+      - name: loyalty_tier
+        type: categorical
+      - name: customer_value_segment
+        type: categorical
+      - name: is_vip_member
+        type: categorical
+      - name: retention_risk_level
+        type: categorical
+
+metrics:
+  - name: total_sales
+    description: Total in-park POS sales amount.
+    type: simple
+    label: Total Sales
+    type_params:
+      measure: sales_amount
+
+  - name: total_items_sold
+    description: Total quantity of in-park POS items sold.
+    type: simple
+    label: Total Items Sold
+    type_params:
+      measure: items_sold
+
+  - name: total_transactions
+    description: Distinct count of POS transactions.
+    type: simple
+    label: Total Transactions
+    type_params:
+      measure: transaction_count
+
+  - name: total_visits
+    description: Distinct count of park visits.
+    type: simple
+    label: Total Visits
+    type_params:
+      measure: visit_count
+
+  - name: total_visit_revenue
+    description: Total visit-level revenue including ticket and in-park spend.
+    type: simple
+    label: Total Visit Revenue
+    type_params:
+      measure: total_visit_spend
+
+  - name: average_order_value
+    description: Average POS sales per transaction.
+    type: derived
+    label: Average Order Value
+    type_params:
+      expr: total_sales / nullif(total_transactions, 0)
+      metrics:
+        - name: total_sales
+        - name: total_transactions
+
+  - name: average_revenue_per_visit
+    description: Average revenue per park visit.
+    type: derived
+    label: Revenue Per Visit
+    type_params:
+      expr: total_visit_revenue / nullif(total_visits, 0)
+      metrics:
+        - name: total_visit_revenue
+        - name: total_visits

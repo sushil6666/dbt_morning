@@ -33,13 +33,9 @@ on-run-start:
 # Runs once at the very end of the entire dbt run (after all models finish)
 on-run-end:
   - "{{ elementary.on_run_end() }}"
-  - "{{ dbt_observability.upload_results(results) }}"
   - "ALTER SESSION SET QUERY_TAG = ''"
 
 vars:
-  # Track observability for all three target environments
-  "dbt_observability:environments": ["dev", "uat", "prod"]
-
   date_spine_start: '2020-01-01'
   date_spine_end:   '2026-12-31'
 
@@ -269,5 +265,3 @@ models:
   dbt_project_evaluator:
     +enabled: false
 
-  dbt_observability:
-    +schema: dbt_observability

@@ -25,11 +25,17 @@ models:
       security before exposing in shared BI environments.
 
       Owner: guest-services@themeparkanalytics.com
+    semantic_model:
+      enabled: true
+    agg_time_dimension: registration_date
     columns:
       - name: customer_id
         description: >
           Natural primary key for the customer account. Varchar. Source:
           `stg_customer_data__customers.customer_id`. Use for all joins from fact tables.
+        entity:
+          type: primary
+          name: customer
         tests:
           - unique
           - not_null
@@ -96,6 +102,8 @@ models:
         description: >
           Boolean. TRUE for `gold` and `platinum` membership tiers. The primary VIP
           filter used across analytics and audience segmentation models.
+        dimension:
+          type: categorical
         tests:
           - not_null
 
@@ -120,6 +128,9 @@ models:
         description: >
           Date the customer account was first created. Used for lifecycle stage and
           cohort calculations.
+        granularity: day
+        dimension:
+          type: time
         tests:
           - not_null
 
@@ -139,6 +150,8 @@ models:
           'Gold' (≥ 1000), 'Silver' (≥ 500), 'Bronze' (< 500).
           This is a static tier derived from the seed-sourced loyalty_points — not
           a dynamic calculation based on transaction history.
+        dimension:
+          type: categorical
         tests:
           - not_null
           - accepted_values:
@@ -150,6 +163,8 @@ models:
           Combined VIP + loyalty segment:
           'High Value' (VIP + Gold loyalty), 'Mid Value' (VIP or Silver+),
           'Standard' (all others). Used for revenue attribution and targeting.
+        dimension:
+          type: categorical
         tests:
           - not_null
           - accepted_values:
@@ -171,6 +186,8 @@ models:
         description: >
           Churn risk proxy: 'High' (< 100 loyalty points AND account > 6 months old),
           'Medium' (< 300 loyalty points), 'Low' (otherwise).
+        dimension:
+          type: categorical
         tests:
           - not_null
           - accepted_values:
@@ -764,6 +781,9 @@ models:
       `fct_visits`.
 
       Owner: revenue@themeparkanalytics.com
+    semantic_model:
+      enabled: true
+    agg_time_dimension: visit_date
     columns:
       - name: sales_key
         description: "{{ doc('surrogate_key_note') }}"
@@ -773,12 +793,18 @@ models:
 
       - name: transaction_id
         description: Natural PK from `raw_sales_transactions`. Varchar.
+        entity:
+          type: primary
+          name: transaction
         tests:
           - unique
           - not_null
 
       - name: customer_id
         description: FK to `dim_customers.customer_id`.
+        entity:
+          type: foreign
+          name: customer
         tests:
           - not_null
           - relationships:
@@ -788,6 +814,9 @@ models:
 
       - name: visit_date
         description: Date of the park visit when the purchase was made (YYYY-MM-DD).
+        granularity: day
+        dimension:
+          type: time
         tests:
           - not_null
 
@@ -805,9 +834,13 @@ models:
 
       - name: is_weekend
         description: Boolean. TRUE for Saturday and Sunday. From `dim_dates`.
+        dimension:
+          type: categorical
 
       - name: category
         description: Product category — `food`, `merchandise`, `game`, `photo`.
+        dimension:
+          type: categorical
         tests:
           - not_null
           - accepted_values:
@@ -841,13 +874,47 @@ models:
 
       - name: payment_method
         description: Payment method — `credit_card`, `cash`, `kiosk`, `mobile`.
+        dimension:
+          type: categorical
         tests:
           - not_null
 
       - name: location
         description: Outlet or stand name where the sale occurred. Free-text from POS.
+        dimension:
+          type: categorical
         tests:
           - not_null
+    metrics:
+      - name: total_sales
+        description: Total in-park POS sales amount.
+        type: simple
+        label: Total Sales
+        agg: sum
+        expr: total_amount
+
+      - name: total_items_sold
+        description: Total quantity of in-park POS items sold.
+        type: simple
+        label: Total Items Sold
+        agg: sum
+        expr: quantity
+
+      - name: total_transactions
+        description: Distinct count of POS transactions.
+        type: simple
+        label: Total Transactions
+        agg: count_distinct
+        expr: transaction_id
+
+      - name: average_order_value
+        description: Average POS sales per transaction.
+        type: derived
+        label: Average Order Value
+        expr: total_sales / nullif(total_transactions, 0)
+        input_metrics:
+          - name: total_sales
+          - name: total_transactions
 
 
   - name: fct_visits
@@ -868,6 +935,9 @@ models:
       compiled column names or types drift from this definition.
 
       Owner: analytics@themeparkanalytics.com
+    semantic_model:
+      enabled: true
+    agg_time_dimension: visit_date
     config:
       contract:
         enforced: true
@@ -884,6 +954,9 @@ models:
           Natural PK from `raw_tickets`. One ticket = one visit event. Use `visit_key`
           for warehouse joins.
         data_type: varchar
+        entity:
+          type: primary
+          name: visit
         tests:
           - unique
           - not_null
@@ -891,6 +964,9 @@ models:
       - name: customer_id
         description: FK to `dim_customers.customer_id`. Identifies the visiting guest.
         data_type: varchar
+        entity:
+          type: foreign
+          name: customer
         tests:
           - not_null
           - relationships:
@@ -901,6 +977,9 @@ models:
       - name: visit_date
         description: Date the guest visited the park (YYYY-MM-DD).
         data_type: date
+        granularity: day
+        dimension:
+          type: time
         tests:
           - not_null
 
@@ -923,10 +1002,14 @@ models:
       - name: is_weekend
         description: Boolean. TRUE for Saturday and Sunday visits.
         data_type: boolean
+        dimension:
+          type: categorical
 
       - name: ticket_type
         description: Ticket product type for this visit (day_pass, weekend_pass, etc.).
         data_type: varchar
+        dimension:
+          type: categorical
 
       - name: ticket_price
         description: >
@@ -959,6 +1042,43 @@ models:
           NULL when no feedback records exist. Do NOT coalesce to 0 — NULL means no
           feedback was submitted, not zero satisfaction.
         data_type: number(5, 2)
+    metrics:
+      - name: total_visits
+        description: Distinct count of park visits.
+        type: simple
+        label: Total Visits
+        agg: count_distinct
+        expr: ticket_id
+
+      - name: total_visit_revenue
+        description: Total visit-level revenue including ticket and in-park spend.
+        type: simple
+        label: Total Visit Revenue
+        agg: sum
+        expr: total_visit_spend
+
+      - name: ticket_revenue
+        description: Total entry ticket revenue.
+        type: simple
+        label: Ticket Revenue
+        agg: sum
+        expr: ticket_price
+
+      - name: in_park_spend
+        description: Total in-park POS spend attributed to visits.
+        type: simple
+        label: In-Park Spend
+        agg: sum
+        expr: in_park_spend
+
+      - name: average_revenue_per_visit
+        description: Average revenue per park visit.
+        type: derived
+        label: Revenue Per Visit
+        expr: total_visit_revenue / nullif(total_visits, 0)
+        input_metrics:
+          - name: total_visit_revenue
+          - name: total_visits
 
 
   - name: fct_sales_with_junk_key

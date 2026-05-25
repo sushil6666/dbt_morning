@@ -6,6 +6,17 @@ version: 2
 
 sources:
 
+  - name: macro_demos_sample
+    description: Sample seed tables used by macro demo models.
+    database: "{{ target.database }}"
+    schema: macro_demos_sample
+    loader: dbt_seed
+    tables:
+      - name: demo_25_sample_microbatch
+        description: Sample microbatch input rows for demo_25_incremental_microbatch.
+        config:
+          event_time: purchase_ts
+
   # ── Primary raw layer (dbt seeds) ────────────────────────────────────────────
 
   - name: raw

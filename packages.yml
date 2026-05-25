@@ -13,6 +13,3 @@ packages:
 
   - package: elementary-data/elementary
     version: [">=0.16.0", "<1.0.0"]
-
-  - git: "https://github.com/flexanalytics/dbt_observability.git"
-    revision: "3.3.1"

@@ -82,4 +82,4 @@ select
     visit_time_category,
     business_season,
     updated_at
-from {{ ref('demo_25_sample_microbatch') }}
+from {{ source('macro_demos_sample', 'demo_25_sample_microbatch') }}

@@ -134,11 +134,14 @@ models:
       which carries the full set of calendar attributes needed by this project.
 
       Owner: analytics@themeparkanalytics.com
+    time_spine:
+      standard_granularity_column: date_day
     columns:
       - name: date_day
         description: >
           Calendar date. Primary key. Range matches `dim_dates` (2020-01-01 to 2026-12-31
           by default). Required by MetricFlow as the time spine anchor for all metrics.
+        granularity: day
         tests:
           - unique
           - not_null

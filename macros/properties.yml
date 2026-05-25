@@ -1,0 +1,446 @@
+version: 2
+
+macros:
+  # ──────────────────────────────────────────────────────────────
+  # ROOT MACROS
+  # ──────────────────────────────────────────────────────────────
+
+  - name: cast_price
+    description: >
+      Casts a price column to DECIMAL with configurable precision and scale.
+      Default DECIMAL(10,2) covers standard ticket prices up to $99,999,999.99.
+      Use precision=12, scale=4 for sub-cent amounts like discount_amount.
+    arguments:
+      - name: column_name
+        type: string
+        description: The column expression to cast.
+      - name: precision
+        type: integer
+        description: Total number of digits (default 10).
+      - name: scale
+        type: integer
+        description: Digits after the decimal point (default 2).
+
+  - name: generate_schema_name
+    description: >
+      Overrides the dbt default schema name resolution. Returns the custom
+      schema name as-is (no environment prefix) when one is provided,
+      otherwise falls back to target.schema.
+    arguments:
+      - name: custom_schema_name
+        type: string
+        description: Custom schema override from model config; none uses target.schema.
+      - name: node
+        type: any
+        description: The current dbt node (passed automatically by dbt).
+
+  - name: spending_tier
+    description: >
+      Classifies a ticket price into a visitor spending tier using thresholds
+      calibrated to Horrorland ticket price ranges.
+      Returns: 'premium' (>=200), 'standard' (>=100), 'budget' (>=40), 'discount' (<40).
+    arguments:
+      - name: amount_column
+        type: string
+        description: The column or expression containing the ticket price.
+
+  - name: visit_time_of_day
+    description: >
+      Classifies a 0–23 visit hour into a named time slot shared across
+      fct_all_ticket_sales and agg_house_profitability_by_time. Changing slot
+      boundaries here updates all consuming models automatically.
+      Returns: 'Morning' (0–11), 'Afternoon' (12–17), 'Evening' (18–20), 'Night' (21–23).
+    arguments:
+      - name: hour_column
+        type: string
+        description: The column or expression containing the hour of visit (integer 0–23).
+
+  # ──────────────────────────────────────────────────────────────
+  # 01 — AUDIT / LINEAGE
+  # ──────────────────────────────────────────────────────────────
+
+  - name: audit_columns
+    description: >
+      Injects four standard audit columns into any mart SELECT list, enabling
+      SOX-style pipeline traceability — every row carries the run that produced it.
+      Emits: dbt_updated_at, dbt_run_id, dbt_model_name, dbt_env.
+    arguments: []
+
+  # ──────────────────────────────────────────────────────────────
+  # 02 — INCREMENTAL FILTER
+  # ──────────────────────────────────────────────────────────────
+
+  - name: incremental_filter
+    description: >
+      Generates an environment-aware WHERE clause for incremental models.
+      In dev: scans only the last N days (cheap, fast testing).
+      In prod: scans since the last loaded watermark timestamp.
+      Emits nothing when is_incremental() is false (full refresh runs).
+    arguments:
+      - name: timestamp_col
+        type: string
+        description: The timestamp column used as the incremental watermark.
+      - name: dev_lookback_days
+        type: integer
+        description: >
+          Days to look back in dev. Defaults to the 'dev_lookback_days' dbt var,
+          falling back to 3 if the var is not set.
+
+  # ──────────────────────────────────────────────────────────────
+  # 03 — PII MASKING
+  # ──────────────────────────────────────────────────────────────
+
+  - name: mask_pii
+    description: >
+      Masks sensitive customer columns in every environment except prod.
+      In prod, the raw column is returned unchanged. Any unrecognised
+      target is masked by default (fail-safe).
+    arguments:
+      - name: column_name
+        type: string
+        description: The column expression containing the sensitive value.
+      - name: mask_type
+        type: string
+        description: >
+          Masking strategy. Options:
+          'hash'    — SHA2-256 hex digest (default),
+          'redact'  — replaces with '***REDACTED***',
+          'partial' — keeps first 2 chars then appends '****'.
+
+  # ──────────────────────────────────────────────────────────────
+  # 04 — SCHEMA EVOLUTION
+  # ──────────────────────────────────────────────────────────────
+
+  - name: get_columns_except
+    description: >
+      Fetches all columns from a relation at compile time, minus any excluded
+      names. New source columns automatically appear in the next dbt run with
+      zero lag — no manual SELECT list updates required.
+    arguments:
+      - name: relation
+        type: relation
+        description: The dbt relation (e.g. ref() or source()) to introspect.
+      - name: exclude_cols
+        type: list[string]
+        description: Column names to exclude (case-insensitive). Default is empty list.
+
+  # ──────────────────────────────────────────────────────────────
+  # 05 — ROW ACCESS POLICY
+  # ──────────────────────────────────────────────────────────────
+
+  - name: attach_row_access_policy
+    description: >
+      Post-hook macro that attaches a Snowflake row access policy to the
+      built table. The policy must already exist in Snowflake before this
+      hook runs. Guarantees zero window of unauthorized access — the policy
+      lands atomically with the table build.
+    arguments:
+      - name: policy_name
+        type: string
+        description: Fully-qualified Snowflake policy name (e.g. 'DB.SCHEMA.policy_name').
+      - name: column_name
+        type: string
+        description: Column in the target table that the policy maps on.
+
+  # ──────────────────────────────────────────────────────────────
+  # 06 — SURROGATE KEY
+  # ──────────────────────────────────────────────────────────────
+
+  - name: cross_db_surrogate_key
+    description: >
+      Generates a surrogate key using the correct MD5 syntax per adapter.
+      Drop-in replacement for dbt_utils.generate_surrogate_key with full
+      adapter control: Snowflake uses MD5(CONCAT_WS), BigQuery uses
+      TO_HEX(MD5), DuckDB/Postgres use md5().
+    arguments:
+      - name: field_list
+        type: list[string]
+        description: >
+          Ordered list of column names to hash together. Fields are joined
+          with '-' as the separator before hashing.
+
+  # ──────────────────────────────────────────────────────────────
+  # 07 — ZERO-DOWNTIME SWAP
+  # ──────────────────────────────────────────────────────────────
+
+  - name: pre_swap_clone
+    description: >
+      Pre-hook: clones the existing production table to a _backup copy
+      before the mart rebuild begins. Part of the clone-and-swap pattern
+      for zero-downtime mart rebuilds.
+    arguments: []
+
+  - name: post_swap_table
+    description: >
+      Post-hook: atomically swaps a staging table into production after
+      the build succeeds, then drops the backup. BI dashboards see no
+      downtime — the SWAP WITH is instantaneous from their perspective.
+    arguments:
+      - name: staging_table
+        type: string
+        description: >
+          Fully-qualified name of the staging table to swap in
+          (e.g. this.schema ~ '.my_model_staging').
+
+  # ──────────────────────────────────────────────────────────────
+  # 08 — DATA QUALITY SCORE
+  # ──────────────────────────────────────────────────────────────
+
+  - name: data_quality_score
+    description: >
+      Generates a 0–100 data quality confidence score per row based on
+      weighted column checks. Supported check types: 'not_null', 'positive',
+      'valid_email'. Weights are summed and normalised to a 0–100 scale.
+    arguments:
+      - name: checks
+        type: list[dict]
+        description: >
+          List of check dicts, each with keys:
+            col    (string) — column name,
+            type   (string) — 'not_null' | 'positive' | 'valid_email',
+            weight (int)    — relative weight for this check.
+
+  # ──────────────────────────────────────────────────────────────
+  # 09 — CLUSTERING
+  # ──────────────────────────────────────────────────────────────
+
+  - name: apply_cluster_by
+    description: >
+      Post-hook macro that applies a Snowflake CLUSTER BY to the built table.
+      Only fires on Snowflake — safe to add to all models, no-ops on other
+      adapters. Makes clustering version-controlled and automatic on every deploy.
+    arguments:
+      - name: cluster_columns
+        type: list[string]
+        description: Ordered list of column names to cluster on.
+
+  # ──────────────────────────────────────────────────────────────
+  # 10 — FEATURE FLAG
+  # ──────────────────────────────────────────────────────────────
+
+  - name: feature_flag
+    description: >
+      Reads a boolean dbt var to toggle experimental model logic on or off.
+      Enables A/B validation of new business logic in the same model file —
+      no separate branch, no separate model. Activate via CLI:
+      dbt run --vars '{"flag_name": true}'.
+    arguments:
+      - name: flag_name
+        type: string
+        description: Name of the dbt variable to read.
+      - name: default
+        type: boolean
+        description: Value to use when the variable is not set (default false).
+
+  # ──────────────────────────────────────────────────────────────
+  # 11 — GENERIC TESTS
+  # ──────────────────────────────────────────────────────────────
+
+  - name: test_valid_ticket_types
+    description: >
+      Generic test that fails when any row contains a ticket_type value not
+      in the provided allowed list. Returns the offending rows.
+    arguments:
+      - name: model
+        type: relation
+        description: The model under test (injected automatically by dbt).
+      - name: column_name
+        type: string
+        description: The column containing ticket type values.
+      - name: valid_types
+        type: list[string]
+        description: Exhaustive list of accepted ticket type strings.
+
+  - name: test_rating_in_range
+    description: >
+      Generic test that fails when satisfaction_rating falls outside the
+      expected numeric range. Returns the offending rows.
+    arguments:
+      - name: model
+        type: relation
+        description: The model under test (injected automatically by dbt).
+      - name: column_name
+        type: string
+        description: The column containing the rating value.
+      - name: min_val
+        type: float
+        description: Minimum allowed value (inclusive).
+      - name: max_val
+        type: float
+        description: Maximum allowed value (inclusive).
+
+  # ──────────────────────────────────────────────────────────────
+  # 12 — DATE SPINE
+  # ──────────────────────────────────────────────────────────────
+
+  - name: generate_date_spine
+    description: >
+      Generates a complete date series between two dates — cross-adapter.
+      Snowflake uses TABLE(GENERATOR) + DATEADD, Postgres/Redshift use
+      GENERATE_SERIES, BigQuery uses GENERATE_DATE_ARRAY, DuckDB uses
+      GENERATE_SERIES cast to date. Output column is always named spine_date.
+    arguments:
+      - name: start_date
+        type: string
+        description: Start date in 'YYYY-MM-DD' format (inclusive).
+      - name: end_date
+        type: string
+        description: End date in 'YYYY-MM-DD' format (inclusive).
+
+  # ──────────────────────────────────────────────────────────────
+  # 13 — QUERY TAG
+  # ──────────────────────────────────────────────────────────────
+
+  - name: apply_query_tag
+    description: >
+      Pre-hook macro that stamps a structured JSON QUERY_TAG on the Snowflake
+      session for query attribution. Captures model name, schema, environment,
+      invocation ID, team, and execution timestamp. No-ops on non-Snowflake targets.
+      Note: named apply_query_tag (not set_query_tag) to avoid overriding the
+      built-in dbt-snowflake adapter macro.
+    arguments:
+      - name: team
+        type: string
+        description: Team name to embed in the query tag (default 'unknown').
+
+  - name: reset_query_tag
+    description: >
+      Clears the Snowflake session QUERY_TAG back to an empty string.
+      Use as a post-hook companion to apply_query_tag to avoid tag bleed
+      across sessions. No-ops on non-Snowflake targets.
+    arguments: []
+
+  # ──────────────────────────────────────────────────────────────
+  # 14 — SCD / SNAPSHOT HELPERS
+  # ──────────────────────────────────────────────────────────────
+
+  - name: read_current_snapshot
+    description: >
+      Returns a subquery containing only the currently-active rows from a
+      dbt snapshot (dbt_valid_to IS NULL). Keeps downstream models clean —
+      they don't need to remember the SCD filter.
+    arguments:
+      - name: snapshot_relation
+        type: relation
+        description: The snapshot relation, typically ref('snp_...').
+
+  - name: scd_metadata_columns
+    description: >
+      Emits the four standard dbt snapshot audit columns plus a computed
+      is_current_record boolean for use in SELECT lists.
+      Columns: dbt_scd_id, dbt_updated_at, dbt_valid_from, dbt_valid_to, is_current_record.
+    arguments: []
+
+  # ──────────────────────────────────────────────────────────────
+  # 15 — PARTITIONING
+  # ──────────────────────────────────────────────────────────────
+
+  - name: get_partition_config
+    description: >
+      Generates adapter-appropriate partitioning config.
+      BigQuery: returns a partition_by dict for use in the model config() block.
+      Snowflake and others: returns the column name as a passthrough
+      (no native partitioning — use get_cluster_by_sql post-hook instead).
+    arguments:
+      - name: date_column
+        type: string
+        description: The date column to partition on.
+      - name: granularity
+        type: string
+        description: Partition granularity for BigQuery — 'day', 'month', or 'year' (default 'day').
+
+  - name: get_cluster_by_sql
+    description: >
+      Emits a ready-to-run Snowflake ALTER TABLE ... CLUSTER BY statement.
+      No-ops on non-Snowflake targets. Use as a post_hook when
+      apply_cluster_by is too generic and you need explicit column control.
+    arguments:
+      - name: cluster_columns
+        type: list[string]
+        description: Ordered list of column names to cluster on.
+
+  # ──────────────────────────────────────────────────────────────
+  # 16 — CONSTRAINTS
+  # ──────────────────────────────────────────────────────────────
+
+  - name: apply_constraints
+    description: >
+      Post-hook macro that applies DDL constraints (PRIMARY KEY, UNIQUE,
+      NOT NULL, FOREIGN KEY) to a Snowflake table after materialisation.
+      All statements are batched inside a single EXECUTE IMMEDIATE BEGIN...END
+      block to satisfy Snowflake's single-statement API requirement.
+
+      Snowflake constraints are metadata-only — they are stored in
+      information_schema but never enforce writes. Pair with dbt tests for
+      real enforcement. BI tools (Tableau, Power BI, Looker) read these
+      constraints to auto-infer join paths.
+
+      FK creation is wrapped in a nested EXCEPTION block: if the referenced
+      column has no PK or UNIQUE constraint, the FK is skipped with a logged
+      warning rather than failing the model run.
+    arguments:
+      - name: primary_key
+        type: string
+        description: Single column name to designate as the primary key (optional).
+      - name: unique_keys
+        type: list[string]
+        description: Columns that each get a UNIQUE constraint (default empty list).
+      - name: not_null_columns
+        type: list[string]
+        description: Columns that each get SET NOT NULL (default empty list).
+      - name: fk_columns
+        type: list[string]
+        description: FK source columns — parallel list with fk_ref_models and fk_ref_columns.
+      - name: fk_ref_models
+        type: list[string]
+        description: dbt model names for FK target tables — parallel list.
+      - name: fk_ref_columns
+        type: list[string]
+        description: Column names in FK target tables — parallel list.
+
+  # ──────────────────────────────────────────────────────────────
+  # HELPERS
+  # ──────────────────────────────────────────────────────────────
+
+  - name: create_schema
+    description: >
+      Runs CREATE SCHEMA IF NOT EXISTS for the given relation's database and
+      schema, then logs the result. Used to ensure schemas exist before
+      materialising models into them.
+    arguments:
+      - name: relation
+        type: relation
+        description: A dbt relation whose .database and .schema attributes identify the target schema.
+
+  - name: sf_create_table_as
+    description: >
+      Helper that emits a CREATE OR REPLACE [TABLE TYPE] ... AS (...) statement
+      for Snowflake. Supports table types: 'table' (default), 'temporary',
+      'hybrid', 'event', 'iceberg'. EVENT TABLE is emitted without an AS clause.
+    arguments:
+      - name: relation
+        type: relation
+        description: The target Snowflake relation to create.
+      - name: sql
+        type: string
+        description: The SELECT statement that populates the table.
+      - name: table_type
+        type: string
+        description: Snowflake table type — 'table', 'temporary', 'hybrid', 'event', or 'iceberg' (default 'table').
+      - name: extra_ddl
+        type: string
+        description: Optional extra DDL clause inserted after the table name (e.g. CLUSTER BY ...).
+
+  - name: debug_dim_employees
+    description: >
+      Development utility that queries dim_employees in SF_TEST.marts for
+      duplicate employee_id values and logs results. Not intended for
+      production use.
+    arguments: []
+
+  - name: drop_snapshot_tables
+    description: >
+      Development utility that drops the three Horrorland snapshot tables
+      (snp_customers, snp_ticket_sales_history, snp_visitor_feedback_changes)
+      from SF_TEST.snapshots. Use to reset snapshot state during development.
+    arguments: []

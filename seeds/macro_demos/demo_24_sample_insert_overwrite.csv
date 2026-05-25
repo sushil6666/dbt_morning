@@ -1,0 +1,10 @@
+revenue_month,category,location,payment_method,total_revenue,total_units_sold,total_transactions,unique_customers,avg_transaction_value,max_transaction_value
+2024-10-01,food,Horror Quarter Snacks,credit_card,14523.45,2341,1823,1654,7.97,125.00
+2024-10-01,merchandise,Horror Quarter Merch,mobile,31876.20,1245,987,902,32.30,299.99
+2024-10-01,game,Midway Games,cash,8234.10,3456,1245,1123,6.61,49.99
+2024-11-01,food,Main Street Eats,credit_card,9812.34,1567,1123,1034,8.74,95.00
+2024-11-01,merchandise,Souvenir Shop East,credit_card,22456.78,934,712,678,31.54,199.99
+2024-11-01,photo,Thunder Dragon Photo Booth,mobile,5634.90,412,389,375,14.49,49.99
+2024-12-01,food,Winter Wonderland Cafe,credit_card,11234.56,1789,1345,1234,8.35,89.99
+2024-12-01,merchandise,Souvenir Shop West,credit_card,18923.45,876,654,623,28.94,149.99
+2025-01-01,food,Splash Valley Snacks,cash,6712.34,978,789,745,8.51,65.00

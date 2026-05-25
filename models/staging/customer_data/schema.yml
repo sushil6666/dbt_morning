@@ -1,0 +1,152 @@
+version: 2
+
+models:
+
+  - name: stg_customer_data__customers
+    description: >
+      Staged customer account records from the `customer_data` source (alias for RAW.raw_customers).
+      One row per customer account. Grain is `customer_id`.
+
+      Columns have been renamed to project-standard conventions, types cast, and
+      several business attributes derived from `membership_type` (VIP status, loyalty points,
+      preferred scare level). Columns not available in the source (address, gender, city, etc.)
+      are set to NULL and documented below.
+
+      This is the **single source of truth** for customer identity and membership attributes.
+      Do not join directly to the raw source — always use this staging model.
+
+      PII note: `email` and `phone` are present. Apply row-level security or masking
+      before exposing in shared BI environments.
+    columns:
+      - name: customer_id
+        description: >
+          Natural primary key for the customer account, sourced from `raw_customers.customer_id`.
+          Varchar. Stable across refreshes — use for joins to all downstream models.
+        tests:
+          - unique
+          - not_null
+
+      - name: first_name
+        description: >
+          Customer's given name as entered at registration. Not normalised — may contain
+          mixed casing. For display purposes, apply INITCAP in the BI layer.
+        tests:
+          - not_null
+
+      - name: last_name
+        description: >
+          Customer's family name as entered at registration. Not normalised — may contain
+          mixed casing. For display purposes, apply INITCAP in the BI layer.
+        tests:
+          - not_null
+
+      - name: email
+        description: >
+          {{ doc('pii_warning') }}
+
+          Customer email address, lowercased via `LOWER()` during staging for consistent
+          deduplication. Must be unique across all active accounts. For aggregate analysis
+          that does not require individual identity (e.g. email domain breakdown), use
+          a derived domain column in downstream marts.
+        tests:
+          - unique
+          - not_null
+
+      - name: phone
+        description: >
+          {{ doc('pii_warning') }}
+
+          Customer contact phone number. Nullable — not required at registration.
+          Format is not validated or normalised during staging.
+
+      - name: address
+        description: >
+          Street address of the customer. **Always NULL in this model** — this field does
+          not exist in the raw source and is stubbed for schema compatibility with
+          the haunted house visitor schema.
+
+      - name: city
+        description: >
+          City of the customer. **Always NULL in this model** — not present in the raw
+          source. Stubbed for haunted house schema compatibility.
+
+      - name: state
+        description: >
+          State code of the customer (e.g. 'CA', 'TX'). **Always NULL in this model** —
+          not present in the raw source. Stubbed for haunted house schema compatibility.
+
+      - name: zip_code
+        description: >
+          Postal zip code of the customer. **Always NULL in this model** — not present in
+          the raw source. Stubbed for haunted house schema compatibility.
+
+      - name: age
+        description: >
+          Customer's current age in whole years, calculated as
+          `DATEDIFF('year', date_of_birth, CURRENT_DATE())`. Recalculated on every refresh,
+          so this value changes when a customer has a birthday. Do not use this column for
+          point-in-time historical analysis — join to a snapshot instead.
+        tests:
+          - not_null
+
+      - name: gender
+        description: >
+          Customer's gender. **Always NULL in this model** — not collected in the source
+          system. Stubbed for haunted house schema compatibility.
+
+      - name: is_vip_member
+        description: >
+          Boolean. TRUE when `membership_type` is 'gold' or 'platinum'. FALSE for all
+          other membership tiers (standard, silver, vip).
+
+          This flag is the primary VIP filter used across analytics and segmentation models.
+          For the full membership tier, see `raw_customers.membership_type` in the source.
+        tests:
+          - not_null
+
+      - name: marketing_opt_in
+        description: >
+          Boolean. **Always FALSE in this model** — marketing opt-in data is not collected
+          in the raw source. Stubbed for schema compatibility. Do not use for marketing
+          audience targeting — all customers would be excluded.
+
+      - name: preferred_scare_level
+        description: >
+          Integer (1–3). Derived from `membership_type` as a proxy for haunted experience
+          preference:
+
+          | membership_type | preferred_scare_level |
+          |----------------|----------------------|
+          | platinum        | 3 (high)             |
+          | gold            | 2 (medium)           |
+          | all others      | 1 (low)              |
+
+          This is an approximation — no direct scare preference data is captured in the source.
+        tests:
+          - not_null
+
+      - name: loyalty_points
+        description: "{{ doc('loyalty_points_derivation') }}"
+        tests:
+          - not_null
+
+      - name: registration_date
+        description: >
+          Date the customer account was first created, cast from `created_at::date`.
+          Used for cohort analysis and lifecycle stage calculations downstream.
+        tests:
+          - not_null
+
+      - name: created_at
+        description: >
+          Timestamp when the customer account was created in the source system.
+          Cast to `timestamp` from the raw `created_at` field. UTC.
+        tests:
+          - not_null
+
+      - name: updated_at
+        description: >
+          Timestamp representing the last known update to the customer record.
+          In this staging model, `updated_at` is set equal to `created_at` because
+          the raw source does not carry a separate update timestamp.
+          For actual change history, see the `snp_customers` snapshot.

@@ -1,0 +1,101 @@
+event_id,event_name,event_start_date,event_end_date,event_type,external_partner,tickets_allocated,tickets_sold,revenue,description
+HE001,Halloween Nightmare Fest,2024-04-07,2024-04-20,seasonal,Dark Arts Events Co.,1839,1716,79094.23,Seasonal haunted event: halloween nightmare fest.
+HE002,Halloween Horror Special,2023-05-24,2023-05-29,seasonal,Ghostly Productions Inc.,909,673,64347.41,Seasonal haunted event: halloween horror special.
+HE003,Halloween Fright Nights,2024-12-23,2025-01-14,special,Horror Haus GmbH,5938,5768,219675.82,Special haunted event: halloween fright nights.
+HE004,Halloween Scream Date,2025-07-01,2025-07-17,seasonal,Frightful Experiences Ltd,1834,1531,145445.47,Seasonal haunted event: halloween scream date.
+HE005,Halloween Terror Tour,2025-04-20,2025-04-27,seasonal,Nightmare Collective Inc.,3263,2751,295826.85,Seasonal haunted event: halloween terror tour.
+HE006,Halloween Ghost Walk,2023-03-12,2023-03-17,special,Spooky Ventures Co.,3980,3740,172451.72,Special haunted event: halloween ghost walk.
+HE007,Halloween Death March,2025-03-07,2025-03-18,seasonal,Crypt Keepers LLC,879,797,72498.29,Seasonal haunted event: halloween death march.
+HE008,Halloween Horror Gala,2022-06-29,2022-07-15,seasonal,Terror Trail Agency,2791,2498,84528.9,Seasonal haunted event: halloween horror gala.
+HE009,Halloween Fear Fest,2025-02-16,2025-02-17,special,Haunted Horizons,3683,2626,164460.68,Special haunted event: halloween fear fest.
+HE010,Halloween Dread Night,2024-12-30,2025-01-02,seasonal,Scare Syndicate LLC,3985,3453,383358.29,Seasonal haunted event: halloween dread night.
+HE011,Halloween Scare Season,2025-05-25,2025-06-09,seasonal,Dark Arts Events Co.,620,463,19271.25,Seasonal haunted event: halloween scare season.
+HE012,Halloween Haunt Week,2022-11-26,2022-12-20,special,Ghostly Productions Inc.,3818,3509,397345.92,Special haunted event: halloween haunt week.
+HE013,Halloween Fright Fest,2022-12-30,2023-01-30,seasonal,Horror Haus GmbH,4322,3945,180846.94,Seasonal haunted event: halloween fright fest.
+HE014,Halloween Scream Week,2022-08-13,2022-08-14,seasonal,Frightful Experiences Ltd,1602,1446,132378.15,Seasonal haunted event: halloween scream week.
+HE015,Halloween Horror Weekend,2024-05-08,2024-05-11,special,Nightmare Collective Inc.,3685,3505,132284.66,Special haunted event: halloween horror weekend.
+HE016,Halloween Panic Night,2023-09-27,2023-10-17,seasonal,Spooky Ventures Co.,246,195,11636.19,Seasonal haunted event: halloween panic night.
+HE017,Halloween Crypt Tour,2024-12-07,2024-12-20,seasonal,Crypt Keepers LLC,1844,1162,101836.55,Seasonal haunted event: halloween crypt tour.
+HE018,Halloween Dark Carnival,2024-06-26,2024-07-05,special,Terror Trail Agency,4668,3627,378158.43,Special haunted event: halloween dark carnival.
+HE019,Halloween Horror Maze,2022-09-16,2022-09-28,seasonal,Haunted Horizons,5893,5485,619793.73,Seasonal haunted event: halloween horror maze.
+HE020,Halloween Fear Trail,2022-09-26,2022-10-20,seasonal,Scare Syndicate LLC,5112,4662,453379.12,Seasonal haunted event: halloween fear trail.
+HE021,Midnight Nightmare Fest,2025-05-30,2025-06-30,special,Dark Arts Events Co.,3544,2380,92066.71,Special haunted event: midnight nightmare fest.
+HE022,Midnight Horror Special,2022-10-22,2022-11-01,seasonal,Ghostly Productions Inc.,1626,1156,77323.35,Seasonal haunted event: midnight horror special.
+HE023,Midnight Fright Nights,2023-03-02,2023-03-31,seasonal,Horror Haus GmbH,4795,3530,350709.18,Seasonal haunted event: midnight fright nights.
+HE024,Midnight Scream Date,2023-04-25,2023-05-23,special,Frightful Experiences Ltd,2310,1506,161455.17,Special haunted event: midnight scream date.
+HE025,Midnight Terror Tour,2024-01-11,2024-01-17,seasonal,Nightmare Collective Inc.,5756,3749,281590.97,Seasonal haunted event: midnight terror tour.
+HE026,Midnight Ghost Walk,2022-01-23,2022-02-11,seasonal,Spooky Ventures Co.,590,440,21766.36,Seasonal haunted event: midnight ghost walk.
+HE027,Midnight Death March,2024-03-28,2024-04-08,special,Crypt Keepers LLC,3471,2872,193187.58,Special haunted event: midnight death march.
+HE028,Midnight Horror Gala,2024-01-30,2024-02-17,seasonal,Terror Trail Agency,959,667,72810.49,Seasonal haunted event: midnight horror gala.
+HE029,Midnight Fear Fest,2024-02-03,2024-02-27,seasonal,Haunted Horizons,3465,2988,151548.02,Seasonal haunted event: midnight fear fest.
+HE030,Midnight Dread Night,2025-09-02,2025-09-10,special,Scare Syndicate LLC,5552,4603,181898.52,Special haunted event: midnight dread night.
+HE031,Midnight Scare Season,2025-11-09,2025-12-03,seasonal,Dark Arts Events Co.,2771,2109,208283.56,Seasonal haunted event: midnight scare season.
+HE032,Midnight Haunt Week,2025-10-12,2025-11-04,seasonal,Ghostly Productions Inc.,2245,1739,98555.92,Seasonal haunted event: midnight haunt week.
+HE033,Midnight Fright Fest,2022-06-14,2022-07-13,special,Horror Haus GmbH,3786,3133,365754.56,Special haunted event: midnight fright fest.
+HE034,Midnight Scream Week,2023-06-09,2023-06-12,seasonal,Frightful Experiences Ltd,4321,3192,356382.04,Seasonal haunted event: midnight scream week.
+HE035,Midnight Horror Weekend,2023-10-19,2023-11-14,seasonal,Nightmare Collective Inc.,4108,3556,147414.83,Seasonal haunted event: midnight horror weekend.
+HE036,Midnight Panic Night,2023-06-10,2023-06-24,special,Spooky Ventures Co.,2582,2387,279589.95,Special haunted event: midnight panic night.
+HE037,Midnight Crypt Tour,2025-06-05,2025-06-11,seasonal,Crypt Keepers LLC,2512,1895,172524.25,Seasonal haunted event: midnight crypt tour.
+HE038,Midnight Dark Carnival,2025-05-22,2025-06-19,seasonal,Terror Trail Agency,5268,4962,235707.26,Seasonal haunted event: midnight dark carnival.
+HE039,Midnight Horror Maze,2023-11-21,2023-12-20,special,Haunted Horizons,1819,1444,43880.3,Special haunted event: midnight horror maze.
+HE040,Midnight Fear Trail,2023-12-29,2024-01-21,seasonal,Scare Syndicate LLC,2619,1966,216691.75,Seasonal haunted event: midnight fear trail.
+HE041,Winter Nightmare Fest,2025-09-29,2025-10-05,seasonal,Dark Arts Events Co.,5443,4333,386265.25,Seasonal haunted event: winter nightmare fest.
+HE042,Winter Horror Special,2023-04-19,2023-05-03,special,Ghostly Productions Inc.,3030,2636,79938.4,Special haunted event: winter horror special.
+HE043,Winter Fright Nights,2024-10-24,2024-11-11,seasonal,Horror Haus GmbH,1858,1115,85842.75,Seasonal haunted event: winter fright nights.
+HE044,Winter Scream Date,2025-10-08,2025-11-01,seasonal,Frightful Experiences Ltd,1571,1465,147435.32,Seasonal haunted event: winter scream date.
+HE045,Winter Terror Tour,2024-06-28,2024-07-28,special,Nightmare Collective Inc.,1881,1398,136125.95,Special haunted event: winter terror tour.
+HE046,Winter Ghost Walk,2024-05-03,2024-05-18,seasonal,Spooky Ventures Co.,4790,3961,341984.43,Seasonal haunted event: winter ghost walk.
+HE047,Winter Death March,2025-07-17,2025-08-13,seasonal,Crypt Keepers LLC,5163,4274,205261.48,Seasonal haunted event: winter death march.
+HE048,Winter Horror Gala,2022-02-12,2022-02-16,special,Terror Trail Agency,2719,1785,146809.09,Special haunted event: winter horror gala.
+HE049,Winter Fear Fest,2022-04-30,2022-05-14,seasonal,Haunted Horizons,2655,2349,275709.07,Seasonal haunted event: winter fear fest.
+HE050,Winter Dread Night,2025-07-06,2025-08-06,seasonal,Scare Syndicate LLC,5016,4186,236783.3,Seasonal haunted event: winter dread night.
+HE051,Winter Scare Season,2022-07-25,2022-08-22,special,Dark Arts Events Co.,3433,2875,290468.02,Special haunted event: winter scare season.
+HE052,Winter Haunt Week,2023-06-27,2023-07-12,seasonal,Ghostly Productions Inc.,2895,2000,218017.1,Seasonal haunted event: winter haunt week.
+HE053,Winter Fright Fest,2024-07-03,2024-07-31,seasonal,Horror Haus GmbH,5890,5127,346762.97,Seasonal haunted event: winter fright fest.
+HE054,Winter Scream Week,2023-01-02,2023-01-14,special,Frightful Experiences Ltd,2249,1561,85264.97,Special haunted event: winter scream week.
+HE055,Winter Horror Weekend,2025-03-18,2025-04-15,seasonal,Nightmare Collective Inc.,5932,5126,238511.83,Seasonal haunted event: winter horror weekend.
+HE056,Winter Panic Night,2024-09-08,2024-09-27,seasonal,Spooky Ventures Co.,5326,5146,462373.72,Seasonal haunted event: winter panic night.
+HE057,Winter Crypt Tour,2022-06-03,2022-06-21,special,Crypt Keepers LLC,2162,1767,136210.51,Special haunted event: winter crypt tour.
+HE058,Winter Dark Carnival,2022-08-24,2022-09-04,seasonal,Terror Trail Agency,4247,2695,162286.38,Seasonal haunted event: winter dark carnival.
+HE059,Winter Horror Maze,2022-01-09,2022-01-28,seasonal,Haunted Horizons,5775,5648,309407.28,Seasonal haunted event: winter horror maze.
+HE060,Winter Fear Trail,2022-01-25,2022-02-13,special,Scare Syndicate LLC,2813,2534,135666.21,Special haunted event: winter fear trail.
+HE061,Valentine Nightmare Fest,2022-10-06,2022-10-25,seasonal,Dark Arts Events Co.,589,454,15096.75,Seasonal haunted event: valentine nightmare fest.
+HE062,Valentine Horror Special,2023-12-03,2023-12-20,seasonal,Ghostly Productions Inc.,2083,1817,178060.02,Seasonal haunted event: valentine horror special.
+HE063,Valentine Fright Nights,2022-11-21,2022-12-18,special,Horror Haus GmbH,3796,2394,221680.47,Special haunted event: valentine fright nights.
+HE064,Valentine Scream Date,2024-05-05,2024-05-13,seasonal,Frightful Experiences Ltd,1744,1165,85766.77,Seasonal haunted event: valentine scream date.
+HE065,Valentine Terror Tour,2023-07-13,2023-07-22,seasonal,Nightmare Collective Inc.,5580,4843,176082.21,Seasonal haunted event: valentine terror tour.
+HE066,Valentine Ghost Walk,2023-02-10,2023-03-07,special,Spooky Ventures Co.,4779,3222,300173.6,Special haunted event: valentine ghost walk.
+HE067,Valentine Death March,2025-08-29,2025-09-29,seasonal,Crypt Keepers LLC,4582,2915,282487.29,Seasonal haunted event: valentine death march.
+HE068,Valentine Horror Gala,2022-08-21,2022-09-14,seasonal,Terror Trail Agency,1229,1159,49055.6,Seasonal haunted event: valentine horror gala.
+HE069,Valentine Fear Fest,2025-01-21,2025-01-24,special,Haunted Horizons,471,413,36424.58,Special haunted event: valentine fear fest.
+HE070,Valentine Dread Night,2022-12-08,2022-12-20,seasonal,Scare Syndicate LLC,2096,1886,159826.9,Seasonal haunted event: valentine dread night.
+HE071,Valentine Scare Season,2025-06-05,2025-06-11,seasonal,Dark Arts Events Co.,2986,1899,209607.08,Seasonal haunted event: valentine scare season.
+HE072,Valentine Haunt Week,2025-07-04,2025-07-18,special,Ghostly Productions Inc.,1740,1358,62687.7,Special haunted event: valentine haunt week.
+HE073,Valentine Fright Fest,2022-08-16,2022-08-21,seasonal,Horror Haus GmbH,4267,3876,453482.93,Seasonal haunted event: valentine fright fest.
+HE074,Valentine Scream Week,2022-01-26,2022-02-03,seasonal,Frightful Experiences Ltd,3287,2170,217973.8,Seasonal haunted event: valentine scream week.
+HE075,Valentine Horror Weekend,2023-04-28,2023-05-17,special,Nightmare Collective Inc.,3836,3802,385386.67,Special haunted event: valentine horror weekend.
+HE076,Valentine Panic Night,2022-06-14,2022-07-13,seasonal,Spooky Ventures Co.,1522,1083,107936.17,Seasonal haunted event: valentine panic night.
+HE077,Valentine Crypt Tour,2024-02-04,2024-02-13,seasonal,Crypt Keepers LLC,2767,1753,144781.95,Seasonal haunted event: valentine crypt tour.
+HE078,Valentine Dark Carnival,2022-02-11,2022-02-21,special,Terror Trail Agency,1501,1035,118950.39,Special haunted event: valentine dark carnival.
+HE079,Valentine Horror Maze,2023-08-08,2023-09-03,seasonal,Haunted Horizons,4754,3457,193969.53,Seasonal haunted event: valentine horror maze.
+HE080,Valentine Fear Trail,2024-10-05,2024-10-19,seasonal,Scare Syndicate LLC,792,495,30609.21,Seasonal haunted event: valentine fear trail.
+HE081,Spring Nightmare Fest,2025-05-27,2025-06-18,special,Dark Arts Events Co.,2799,2364,212190.69,Special haunted event: spring nightmare fest.
+HE082,Spring Horror Special,2022-03-12,2022-03-25,seasonal,Ghostly Productions Inc.,2417,2074,104523.71,Seasonal haunted event: spring horror special.
+HE083,Spring Fright Nights,2022-11-05,2022-11-28,seasonal,Horror Haus GmbH,5724,3509,346454.4,Seasonal haunted event: spring fright nights.
+HE084,Spring Scream Date,2023-08-15,2023-09-08,special,Frightful Experiences Ltd,3473,2941,223823.34,Special haunted event: spring scream date.
+HE085,Spring Terror Tour,2023-04-12,2023-04-18,seasonal,Nightmare Collective Inc.,4493,3527,420586.56,Seasonal haunted event: spring terror tour.
+HE086,Spring Ghost Walk,2023-03-11,2023-03-19,seasonal,Spooky Ventures Co.,5506,4367,195402.24,Seasonal haunted event: spring ghost walk.
+HE087,Spring Death March,2025-03-07,2025-03-11,special,Crypt Keepers LLC,3761,2264,183158.83,Special haunted event: spring death march.
+HE088,Spring Horror Gala,2022-02-28,2022-03-27,seasonal,Terror Trail Agency,1855,1247,138481.01,Seasonal haunted event: spring horror gala.
+HE089,Spring Fear Fest,2023-01-04,2023-01-25,seasonal,Haunted Horizons,2661,1721,204847.47,Seasonal haunted event: spring fear fest.
+HE090,Spring Dread Night,2023-06-06,2023-06-12,special,Scare Syndicate LLC,4949,4534,311742.4,Special haunted event: spring dread night.
+HE091,Spring Scare Season,2022-01-07,2022-02-06,seasonal,Dark Arts Events Co.,5472,3428,258018.8,Seasonal haunted event: spring scare season.
+HE092,Spring Haunt Week,2024-07-02,2024-07-05,seasonal,Ghostly Productions Inc.,1556,1535,78282.66,Seasonal haunted event: spring haunt week.
+HE093,Spring Fright Fest,2024-06-09,2024-06-14,special,Horror Haus GmbH,4117,3723,142179.37,Special haunted event: spring fright fest.
+HE094,Spring Scream Week,2024-10-25,2024-10-31,seasonal,Frightful Experiences Ltd,2105,2014,164260.57,Seasonal haunted event: spring scream week.
+HE095,Spring Horror Weekend,2023-03-03,2023-03-26,seasonal,Nightmare Collective Inc.,1022,836,71080.64,Seasonal haunted event: spring horror weekend.
+HE096,Spring Panic Night,2022-12-22,2022-12-27,special,Spooky Ventures Co.,4094,3967,439413.42,Special haunted event: spring panic night.
+HE097,Spring Crypt Tour,2022-12-20,2023-01-16,seasonal,Crypt Keepers LLC,5823,4543,204915.92,Seasonal haunted event: spring crypt tour.
+HE098,Spring Dark Carnival,2024-11-22,2024-12-14,seasonal,Terror Trail Agency,4332,3711,137130.31,Seasonal haunted event: spring dark carnival.
+HE099,Spring Horror Maze,2023-05-08,2023-05-25,special,Haunted Horizons,2057,1937,181011.02,Special haunted event: spring horror maze.
+HE100,Spring Fear Trail,2024-03-20,2024-04-06,seasonal,Scare Syndicate LLC,4799,3027,156635.04,Seasonal haunted event: spring fear trail.

@@ -1,0 +1,419 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# Intermediate model docs + unit tests
+# ---------------------------------------------------------------------------
+# All three models are materialized as ephemeral, so they have no physical
+# DB objects and cannot be queried directly.  Unit tests let us validate
+# their SQL logic in isolation using pre-defined fixture data.
+#
+# Run all intermediate unit tests:
+#   dbt test --select int_daily_revenue int_ride_metrics int_customer_visits
+# ---------------------------------------------------------------------------
+
+models:
+
+  - name: int_daily_revenue
+    description: >
+      Combines ticket revenue and in-park sales revenue by visit date using a
+      FULL OUTER JOIN so dates that appear in only one source are still included.
+      All NULL sides of the join are coalesced to 0.
+
+      Grain: one row per `visit_date`. Includes all dates that appear in either
+      `stg_sales__tickets` or `stg_sales_transactions__sales_transactions`.
+
+      This is an **ephemeral intermediate model** — it has no physical database object.
+      It is consumed by `agg_daily_revenue`, which joins it to `dim_dates` for a
+      complete date-spined revenue series.
+
+      Revenue definition: `total_revenue = ticket_revenue + in_park_revenue`.
+      Ticket revenue is gross (final_price, post-discount). In-park revenue is POS
+      total_amount. Neither deducts returns or refunds.
+
+      Owner: analytics@themeparkanalytics.com
+    columns:
+      - name: visit_date
+        description: >
+          Calendar date of the park visit. Primary key of this intermediate model.
+          Can originate from either the ticket or sales transaction source.
+        tests:
+          - not_null
+          - unique
+
+      - name: ticket_revenue
+        description: >
+          Sum of `final_price` from `stg_sales__tickets` for this date. Represents
+          total ticket-entry revenue. Coalesced to 0 when no ticket purchases exist
+          for this date (from the RIGHT side of the FULL OUTER JOIN).
+
+      - name: in_park_revenue
+        description: >
+          Sum of `total_amount` from `stg_sales_transactions__sales_transactions` for
+          this date. Represents all in-park POS spending (food, merchandise, games, photos).
+          Coalesced to 0 when no transactions exist for this date.
+
+      - name: food_revenue
+        description: >
+          Subset of `in_park_revenue` where `category = 'food'`. Additive — safe to
+          SUM across dates. Coalesced to 0 when no food purchases exist for this date.
+
+      - name: merch_revenue
+        description: >
+          Subset of `in_park_revenue` where `category = 'merchandise'`. Coalesced to 0
+          when no merchandise purchases exist for this date.
+
+      - name: total_revenue
+        description: >
+          `ticket_revenue + in_park_revenue`. Combined daily revenue from all park
+          revenue streams. This is the top-line daily revenue metric.
+
+      - name: unique_visitors
+        description: >
+          Count of distinct `customer_id` values in `stg_sales__tickets` for this date.
+          Represents the number of unique customers who purchased entry on this day.
+          Coalesced to 0 on dates with no ticket purchases.
+
+      - name: tickets_sold
+        description: >
+          Total count of ticket records (rows) in `stg_sales__tickets` for this date.
+          May exceed `unique_visitors` if a customer purchased multiple tickets
+          on the same day.
+
+
+  - name: int_ride_metrics
+    description: >
+      Enriches the ride catalog with aggregated feedback metrics.
+      Rides with no reviews receive 0 for all count/pct columns (coalesced from
+      the LEFT JOIN NULL).  positive_review_pct is guarded against division by
+      zero via a CASE WHEN total_reviews > 0 check.
+
+      Grain: one row per `ride_id`. Includes all rides from `stg_park_assets__rides`,
+      including those with no associated feedback.
+
+      This is an **ephemeral intermediate model** consumed by `dim_rides`.
+      Feedback metrics are aggregated across all time — this is a lifetime aggregate,
+      not a windowed or time-bounded calculation.
+
+      Owner: analytics@themeparkanalytics.com
+    columns:
+      - name: ride_id
+        description: >
+          Natural primary key from `stg_park_assets__rides`. Varchar. Use for joins
+          from dimension and fact tables.
+        tests:
+          - not_null
+          - unique
+
+      - name: ride_name
+        description: Display name of the ride, carried from `stg_park_assets__rides`.
+
+      - name: ride_type
+        description: Physical category of the ride (roller_coaster, dark_ride, etc.).
+
+      - name: thrill_level
+        description: >
+          Subjective thrill intensity from `stg_park_assets__rides`.
+          Values: `low`, `medium`, `high`, `extreme`.
+
+      - name: zone
+        description: Park zone where the ride is located.
+
+      - name: is_haunted
+        description: Boolean. TRUE when the ride is part of the haunted house category.
+
+      - name: capacity_per_hour
+        description: Maximum riders per hour under normal operating conditions.
+
+      - name: avg_wait_minutes
+        description: >
+          Rolling average queue wait time in minutes. Nullable when not reported by
+          operations.
+
+      - name: total_reviews
+        description: >
+          Count of feedback rows linked to this ride via `ride_id`.
+          Excludes feedback rows where `ride_id IS NULL` (general park feedback).
+          Coalesced to 0 for rides with no reviews.
+
+      - name: avg_rating
+        description: >
+          Average numeric satisfaction rating (1–5) across all reviews for this ride.
+          Coalesced to 0 when no reviews exist (not NULL). For rides with reviews,
+          range is 1.0–5.0.
+
+      - name: positive_reviews
+        description: >
+          Count of feedback rows where `sentiment = 'positive'`. Coalesced to 0.
+
+      - name: negative_reviews
+        description: >
+          Count of feedback rows where `sentiment = 'negative'`. Coalesced to 0.
+
+      - name: positive_review_pct
+        description: >
+          Percentage of positive reviews out of total: `ROUND(positive_reviews /
+          total_reviews * 100, 2)`. Returns 0 when `total_reviews = 0` (no
+          division-by-zero risk). Range: 0–100.
+
+
+  - name: int_customer_visits
+    description: >
+      Joins ticket purchases with in-park spend and feedback per customer per visit date.
+      One row per ticket purchase. Grain is `ticket_id`.
+
+      `in_park_spend` is aggregated from `stg_sales_transactions__sales_transactions`
+      by `(customer_id, visit_date)` and coalesces to 0 when no matching transactions
+      exist. `avg_rating` is averaged from `stg_feedback__visitor_feedback` by
+      `(customer_id, visit_date)` and remains NULL when no feedback exists — do not
+      coalesce to 0 in downstream models, as 0 would be misinterpreted as a real rating.
+
+      `total_visit_spend = ticket_price + in_park_spend`.
+
+      This is an **ephemeral intermediate model** consumed by `fct_visits`.
+
+      Owner: analytics@themeparkanalytics.com
+    columns:
+      - name: ticket_id
+        description: >
+          Primary key for the visit record, sourced from `stg_sales__tickets.ticket_id`.
+          Each ticket represents one visit event. Varchar.
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        description: >
+          Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
+          visiting customer.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: >
+          Date of the park visit (YYYY-MM-DD). Used as the join key for in-park spend
+          and feedback aggregation.
+        tests:
+          - not_null
+
+      - name: ticket_type
+        description: >
+          Ticket product type purchased for this visit (day_pass, weekend_pass, etc.).
+          Sourced from `stg_sales__tickets.ticket_type`.
+
+      - name: ticket_price
+        description: >
+          Amount paid for the entry ticket in USD (`final_price` from
+          `stg_sales__tickets`). This is the ticket revenue component of
+          `total_visit_spend`.
+
+      - name: in_park_spend
+        description: >
+          Sum of all POS transaction amounts for this customer on this visit date.
+          Coalesced to 0 when no matching `stg_sales_transactions` rows exist.
+          Includes food, merchandise, games, and photo purchases.
+
+      - name: total_visit_spend
+        description: >
+          Combined visit spend: `ticket_price + in_park_spend`. This is the primary
+          per-visit revenue measure used in `fct_visits` for total park spend analysis.
+          Always ≥ ticket_price (in_park_spend is non-negative).
+
+      - name: avg_rating
+        description: >
+          Average satisfaction rating (1–5) submitted by this customer for this visit
+          date. NULL when no feedback records exist for this customer+date combination.
+          Do NOT coalesce to 0 — NULL means "no rating submitted", not "zero satisfaction".
+
+
+# ---------------------------------------------------------------------------
+# Unit Tests
+# ---------------------------------------------------------------------------
+
+unit_tests:
+
+  # ── int_daily_revenue ─────────────────────────────────────────────────────
+
+  - name: test_daily_revenue_ticket_only_date
+    model: int_daily_revenue
+    description: >
+      When no in-park sales exist for a date, the FULL OUTER JOIN should still
+      produce a row with all sales columns coalesced to 0.
+      Confirms the LEFT side of the join works correctly.
+    given:
+      - input: ref('stg_sales__tickets')
+        rows:
+          - {ticket_id: 'TK1', customer_id: 'C1', visit_date: '2024-06-01', final_price: 80.00}
+          - {ticket_id: 'TK2', customer_id: 'C2', visit_date: '2024-06-01', final_price: 40.00}
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows: []
+    expect:
+      rows:
+        - {visit_date: '2024-06-01', ticket_revenue: 120.00, in_park_revenue: 0,
+           food_revenue: 0, merch_revenue: 0, total_revenue: 120.00,
+           unique_visitors: 2, tickets_sold: 2}
+
+  - name: test_daily_revenue_sales_only_date
+    model: int_daily_revenue
+    description: >
+      When no ticket purchases exist for a date, the FULL OUTER JOIN should still
+      produce a row with all ticket columns coalesced to 0.
+      Confirms the RIGHT side of the join works correctly.
+    given:
+      - input: ref('stg_sales__tickets')
+        rows: []
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows:
+          - {transaction_id: 'TX1', customer_id: 'C1', visit_date: '2024-06-02',
+             category: 'food', total_amount: 25.00}
+    expect:
+      rows:
+        - {visit_date: '2024-06-02', ticket_revenue: 0, in_park_revenue: 25.00,
+           food_revenue: 25.00, merch_revenue: 0, total_revenue: 25.00,
+           unique_visitors: 0, tickets_sold: 0}
+
+  - name: test_daily_revenue_category_splitting
+    model: int_daily_revenue
+    description: >
+      When a date has both ticket sales and mixed in-park categories, verifies
+      that food and merchandise CASE columns are split correctly while other
+      categories (game) contribute to in_park_revenue but not food/merch buckets.
+    given:
+      - input: ref('stg_sales__tickets')
+        rows:
+          - {ticket_id: 'TK1', customer_id: 'C1', visit_date: '2024-06-03', final_price: 60.00}
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows:
+          - {transaction_id: 'TX1', customer_id: 'C1', visit_date: '2024-06-03',
+             category: 'food',        total_amount: 30.00}
+          - {transaction_id: 'TX2', customer_id: 'C1', visit_date: '2024-06-03',
+             category: 'merchandise', total_amount: 20.00}
+          - {transaction_id: 'TX3', customer_id: 'C1', visit_date: '2024-06-03',
+             category: 'game',        total_amount: 10.00}
+    expect:
+      rows:
+        - {visit_date: '2024-06-03', ticket_revenue: 60.00, in_park_revenue: 60.00,
+           food_revenue: 30.00, merch_revenue: 20.00, total_revenue: 120.00,
+           unique_visitors: 1, tickets_sold: 1}
+
+  # ── int_ride_metrics ──────────────────────────────────────────────────────
+
+  - name: test_ride_metrics_no_reviews
+    model: int_ride_metrics
+    description: >
+      A ride that has no feedback rows should receive 0 for total_reviews,
+      positive_reviews, negative_reviews, and positive_review_pct.
+      avg_rating coalesces to 0.  Confirms the division-by-zero guard
+      (CASE WHEN total_reviews > 0) returns 0 rather than NULL or an error.
+    given:
+      - input: ref('stg_park_assets__rides')
+        rows:
+          - {ride_id: 1, ride_name: 'The Screamer', ride_type: 'roller_coaster',
+             thrill_level: 'extreme', zone: 'Zone A', is_haunted: false,
+             capacity_per_hour: 500, avg_wait_minutes: 45}
+      - input: ref('stg_feedback__visitor_feedback')
+        rows: []
+    expect:
+      rows:
+        - {ride_id: 1, total_reviews: 0, avg_rating: 0,
+           positive_reviews: 0, negative_reviews: 0, positive_review_pct: 0}
+
+  - name: test_ride_metrics_positive_review_pct
+    model: int_ride_metrics
+    description: >
+      Verifies positive_review_pct = ROUND(positive / total * 100, 2).
+      Input: 3 positive + 1 negative = 4 total → 75.00 %.
+      Also confirms conditional SUM correctly counts by sentiment label.
+    given:
+      - input: ref('stg_park_assets__rides')
+        rows:
+          - {ride_id: 2, ride_name: 'Ghost Coaster', ride_type: 'dark_ride',
+             thrill_level: 'high', zone: 'Zone B', is_haunted: true,
+             capacity_per_hour: 300, avg_wait_minutes: 20}
+      - input: ref('stg_feedback__visitor_feedback')
+        rows:
+          - {feedback_id: 'F1', ride_id: 2, rating: 5, sentiment: 'positive',
+             customer_id: 'C1', visit_date: '2024-01-01'}
+          - {feedback_id: 'F2', ride_id: 2, rating: 5, sentiment: 'positive',
+             customer_id: 'C2', visit_date: '2024-01-01'}
+          - {feedback_id: 'F3', ride_id: 2, rating: 5, sentiment: 'positive',
+             customer_id: 'C3', visit_date: '2024-01-01'}
+          - {feedback_id: 'F4', ride_id: 2, rating: 1, sentiment: 'negative',
+             customer_id: 'C4', visit_date: '2024-01-01'}
+    expect:
+      rows:
+        - {ride_id: 2, total_reviews: 4, avg_rating: 4.0,
+           positive_reviews: 3, negative_reviews: 1, positive_review_pct: 75.00}
+
+  - name: test_ride_metrics_excludes_null_ride_id_feedback
+    model: int_ride_metrics
+    description: >
+      The feedback_agg CTE filters WHERE ride_id IS NOT NULL.
+      Feedback rows with no ride_id (e.g. general park comments) must not be
+      counted against any ride's review totals.
+      Input: 1 feedback with ride_id=3 (included) + 2 with ride_id=null (excluded).
+      Expected: total_reviews=1, not 3.
+    given:
+      - input: ref('stg_park_assets__rides')
+        rows:
+          - {ride_id: 3, ride_name: 'Free Fall', ride_type: 'drop_tower',
+             thrill_level: 'extreme', zone: 'Zone C', is_haunted: false,
+             capacity_per_hour: 200, avg_wait_minutes: 15}
+      - input: ref('stg_feedback__visitor_feedback')
+        rows:
+          - {feedback_id: 'F1', ride_id: 3,    rating: 5, sentiment: 'positive',
+             customer_id: 'C1', visit_date: '2024-01-01'}
+          - {feedback_id: 'F2', ride_id: null,  rating: 1, sentiment: 'negative',
+             customer_id: 'C2', visit_date: '2024-01-01'}
+          - {feedback_id: 'F3', ride_id: null,  rating: 2, sentiment: 'negative',
+             customer_id: 'C3', visit_date: '2024-01-01'}
+    expect:
+      rows:
+        - {ride_id: 3, total_reviews: 1, positive_reviews: 1,
+           negative_reviews: 0, positive_review_pct: 100.00}
+
+  # ── int_customer_visits ───────────────────────────────────────────────────
+
+  - name: test_customer_visit_no_inpark_spend
+    model: int_customer_visits
+    description: >
+      When no sales transaction matches a customer+visit_date, in_park_spend
+      should coalesce to 0 and total_visit_spend should equal ticket_price alone.
+      avg_rating should be NULL (no feedback row exists).
+    given:
+      - input: ref('stg_sales__tickets')
+        rows:
+          - {ticket_id: 'TK1', customer_id: 'C1', visit_date: '2024-07-01',
+             ticket_type: 'day_pass', final_price: 55.00}
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows: []
+      - input: ref('stg_feedback__visitor_feedback')
+        rows: []
+    expect:
+      rows:
+        - {ticket_id: 'TK1', customer_id: 'C1', in_park_spend: 0,
+           total_visit_spend: 55.00, avg_rating: null}
+
+  - name: test_customer_visit_with_spend_and_feedback
+    model: int_customer_visits
+    description: >
+      When sales transactions and feedback match the customer+visit_date,
+      in_park_spend = SUM(total_amount) and total_visit_spend = ticket + in_park.
+      avg_rating reflects the average of all matching feedback ratings.
+    given:
+      - input: ref('stg_sales__tickets')
+        rows:
+          - {ticket_id: 'TK2', customer_id: 'C2', visit_date: '2024-07-02',
+             ticket_type: 'weekend_pass', final_price: 80.00}
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows:
+          - {transaction_id: 'TX1', customer_id: 'C2', visit_date: '2024-07-02',
+             total_amount: 35.00}
+          - {transaction_id: 'TX2', customer_id: 'C2', visit_date: '2024-07-02',
+             total_amount: 25.00}
+      - input: ref('stg_feedback__visitor_feedback')
+        rows:
+          - {feedback_id: 'F1', customer_id: 'C2', visit_date: '2024-07-02', rating: 4}
+    expect:
+      rows:
+        - {ticket_id: 'TK2', in_park_spend: 60.00,
+           total_visit_spend: 140.00, avg_rating: 4.0}

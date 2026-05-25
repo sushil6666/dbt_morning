@@ -1,0 +1,11 @@
+sale_id,customer_id,ticket_id,purchase_date,purchase_ts,visit_date,ticket_price,discount_percent,discount_category,payment_method,purchase_channel,is_online,same_day_visit,advance_purchase,visit_time_category,business_season,updated_at
+SL2001,C001,T101,2024-10-15,2024-10-15 00:00:00,2024-10-31,49.99,0,No Discount,credit_card,online,TRUE,FALSE,TRUE,Morning,Halloween Season,2024-10-15 08:00:00
+SL2002,C002,T102,2024-10-16,2024-10-16 00:00:00,2024-11-01,69.99,30,High Discount,cash,in_park,FALSE,FALSE,TRUE,Afternoon,Halloween Season,2024-10-16 14:30:00
+SL2003,C003,T103,2024-10-17,2024-10-17 00:00:00,2024-10-17,299.99,0,No Discount,credit_card,online,TRUE,TRUE,FALSE,Night,Halloween Season,2024-10-17 22:00:00
+SL2004,C004,T104,2024-10-18,2024-10-18 00:00:00,2024-10-25,89.99,15,Mid Discount,mobile,kiosk,FALSE,FALSE,TRUE,Morning,Halloween Season,2024-10-18 10:15:00
+SL2005,C005,T105,2024-10-19,2024-10-19 00:00:00,2024-10-31,59.99,5,Low Discount,credit_card,online,TRUE,FALSE,TRUE,Evening,Halloween Season,2024-10-19 19:45:00
+SL2006,C006,T106,2024-10-20,2024-10-20 00:00:00,2024-10-20,99.99,0,No Discount,debit_card,phone,FALSE,TRUE,FALSE,Afternoon,Halloween Season,2024-10-20 16:00:00
+SL2007,C007,T107,2024-10-21,2024-10-21 00:00:00,2024-10-31,79.99,8,Low Discount,cash,in_park,FALSE,FALSE,TRUE,Morning,Halloween Season,2024-10-21 09:30:00
+SL2008,C008,T108,2024-10-22,2024-10-22 00:00:00,2024-11-05,119.99,20,Mid Discount,credit_card,online,TRUE,FALSE,TRUE,Evening,Halloween Season,2024-10-22 20:00:00
+SL2009,C009,T109,2024-10-23,2024-10-23 00:00:00,2024-10-23,49.99,0,No Discount,mobile,online,TRUE,TRUE,FALSE,Afternoon,Halloween Season,2024-10-23 13:30:00
+SL2010,C010,T110,2024-10-24,2024-10-24 00:00:00,2024-11-10,149.99,25,High Discount,credit_card,online,TRUE,FALSE,TRUE,Morning,Halloween Season,2024-10-24 11:00:00

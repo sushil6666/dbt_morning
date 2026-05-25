@@ -1,0 +1,345 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_21_25_incremental.yml
+# ---------------------------------------------------------------------------
+# Documents all five dbt incremental strategy demo models.
+# Each model demonstrates one strategy on real project data.
+#
+# Strategy summary:
+#   demo_21 — merge          : row-level upsert on sale_id + updated_at watermark
+#   demo_22 — append         : immutable transaction ledger, pure INSERT
+#   demo_23 — delete+insert  : daily visit summary, 3-day look-back window
+#   demo_24 — insert_overwrite: monthly revenue rollup, partition-level overwrite
+#   demo_25 — microbatch     : dbt-orchestrated daily batch loop (requires dbt 1.9+)
+# ---------------------------------------------------------------------------
+
+models:
+
+  # -------------------------------------------------------------------------
+  # demo_21 — merge
+  # -------------------------------------------------------------------------
+  - name: demo_21_incremental_merge
+    description: >
+      Demonstrates the merge incremental strategy.
+      Keeps ticket sale records current by merging on sale_id — new rows are
+      inserted, changed rows update only the price and discount columns.
+      Watermark: updated_at (strict >). Clustered on purchase_date.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_21', 'incremental', 'merge']
+
+    columns:
+
+      - name: sale_id
+        description: Surrogate primary key for each ticket sale.
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        description: Foreign key to dim_customers.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+
+      - name: ticket_id
+        description: Source ticket identifier.
+        tests:
+          - not_null
+
+      - name: purchase_date
+        description: Date the ticket was purchased — clustering key.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: Date of the planned park visit.
+        tests:
+          - not_null
+
+      - name: ticket_price
+        description: Final ticket price after discounts, in USD.
+
+      - name: discount_percent
+        description: Percentage discount applied to the base price.
+
+      - name: discount_category
+        description: Bucketed discount label (No Discount, Low, Mid, High).
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['No Discount', 'Low Discount', 'Mid Discount', 'High Discount']
+
+      - name: payment_method
+        description: Payment method used at checkout.
+
+      - name: purchase_channel
+        description: Channel through which the sale was made.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['online', 'in_park', 'kiosk', 'phone']
+
+      - name: updated_at
+        description: Timestamp of the last modification — serves as the merge watermark.
+        tests:
+          - not_null
+
+  # -------------------------------------------------------------------------
+  # demo_22 — append
+  # -------------------------------------------------------------------------
+  - name: demo_22_incremental_append
+    description: >
+      Demonstrates the append incremental strategy.
+      Appends new in-park sales transactions to a growing immutable ledger.
+      No deduplication — safe because transaction rows are never corrected
+      after posting. Watermark: visit_date (strict >). Clustered on visit_date.
+      _loaded_at enables detection of accidental pipeline replays.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_22', 'incremental', 'append']
+
+    columns:
+
+      - name: sales_key
+        description: Surrogate key for the sales transaction.
+        tests:
+          - not_null
+
+      - name: transaction_id
+        description: Source transaction identifier from the POS system.
+        tests:
+          - not_null
+
+      - name: customer_id
+        description: Customer who made the purchase.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: Date of the in-park visit — used as the append watermark.
+        tests:
+          - not_null
+
+      - name: category
+        description: Spend category (food, merchandise, ride_extras, etc.).
+
+      - name: item_name
+        description: Name of the purchased item.
+
+      - name: quantity
+        description: Number of units purchased.
+
+      - name: unit_price
+        description: Price per unit in USD.
+
+      - name: total_amount
+        description: quantity * unit_price.
+
+      - name: payment_method
+        description: Payment method used for the transaction.
+
+      - name: location
+        description: Park zone or outlet where the purchase was made.
+
+      - name: _loaded_at
+        description: Timestamp when this row was loaded into the target — set at query time.
+        tests:
+          - not_null
+
+  # -------------------------------------------------------------------------
+  # demo_23 — delete+insert
+  # -------------------------------------------------------------------------
+  - name: demo_23_incremental_delete_insert
+    description: >
+      Demonstrates the delete+insert incremental strategy.
+      Produces a daily visit summary aggregated by visit_date and ticket_type.
+      Each run deletes and rewrites the last 3 days so upstream corrections
+      to visit records are always reflected. Clustered on visit_date.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_23', 'incremental', 'delete_insert']
+
+    columns:
+
+      - name: visit_date
+        description: Partition column — the unit of delete-and-replace. All rows for a given date are rewritten together.
+        tests:
+          - not_null
+
+      - name: ticket_type
+        description: Ticket category for this daily summary row.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
+
+      - name: unique_visitors
+        description: Count of distinct customer_ids who visited on this date.
+        tests:
+          - not_null
+
+      - name: total_visits
+        description: Total number of visit records for this date and ticket type.
+        tests:
+          - not_null
+
+      - name: total_ticket_revenue
+        description: Sum of ticket_price for this date and ticket type.
+
+      - name: total_in_park_spend
+        description: Sum of additional in-park spend for this date and ticket type.
+
+      - name: total_visit_spend
+        description: Sum of total_visit_spend (ticket + in-park) for this segment.
+
+      - name: avg_satisfaction_rating
+        description: Average customer satisfaction rating (1–5) for this segment.
+
+      - name: min_ticket_price
+        description: Minimum ticket price observed for this date and ticket type.
+
+      - name: max_ticket_price
+        description: Maximum ticket price observed for this date and ticket type.
+
+  # -------------------------------------------------------------------------
+  # demo_24 — insert_overwrite
+  # -------------------------------------------------------------------------
+  - name: demo_24_incremental_insert_overwrite
+    description: >
+      Demonstrates the insert_overwrite incremental strategy.
+      Maintains a monthly revenue rollup by category, location, and payment method.
+      Each run fully recomputes the current and prior month, then overwrites
+      those two partitions via INSERT OVERWRITE. cluster_by revenue_month is
+      required — without it, every run replaces the entire table.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_24', 'incremental', 'insert_overwrite']
+
+    columns:
+
+      - name: revenue_month
+        description: First day of the month — partition column for the overwrite. Must be aligned to month boundaries.
+        tests:
+          - not_null
+
+      - name: category
+        description: Spend category (food, merchandise, ride_extras, etc.).
+        tests:
+          - not_null
+
+      - name: location
+        description: Park zone or outlet.
+        tests:
+          - not_null
+
+      - name: payment_method
+        description: Payment method used for this segment.
+        tests:
+          - not_null
+
+      - name: total_revenue
+        description: Sum of total_amount for this month / category / location / payment_method segment.
+
+      - name: total_units_sold
+        description: Sum of quantity sold for this segment.
+
+      - name: total_transactions
+        description: Count of distinct transactions for this segment.
+
+      - name: unique_customers
+        description: Count of distinct customers for this segment.
+
+      - name: avg_transaction_value
+        description: Average transaction amount for this segment.
+
+      - name: max_transaction_value
+        description: Largest single transaction in this segment.
+
+  # -------------------------------------------------------------------------
+  # demo_25 — microbatch
+  # -------------------------------------------------------------------------
+  - name: demo_25_incremental_microbatch
+    description: >
+      Demonstrates the microbatch incremental strategy.
+      Processes ticket sales in discrete daily windows. dbt orchestrates the
+      batch loop — each day is compiled and executed as a separate Snowflake
+      query. lookback=3 reprocesses the last 3 days on every run to absorb
+      late-arriving source rows. Failed batches can be retried independently
+      using --event-time-start / --event-time-end CLI flags.
+      Requires dbt-fusion 2.x or dbt-core 1.9+.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_25', 'incremental', 'microbatch']
+
+    columns:
+
+      - name: sale_id
+        description: Surrogate primary key for each ticket sale.
+        tests:
+          - not_null
+
+      - name: customer_id
+        description: Foreign key to dim_customers.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+
+      - name: ticket_id
+        description: Source ticket identifier.
+        tests:
+          - not_null
+
+      - name: purchase_date
+        description: Date the ticket was purchased — cluster key aligned to batch boundaries.
+        tests:
+          - not_null
+
+      - name: purchase_ts
+        description: purchase_date cast to timestamp — the event_time column used by dbt to define batch windows.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: Date of the planned park visit.
+        tests:
+          - not_null
+
+      - name: ticket_price
+        description: Final ticket price after discounts, in USD.
+
+      - name: discount_percent
+        description: Percentage discount applied to the base price.
+
+      - name: discount_category
+        description: Bucketed discount label.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['No Discount', 'Low Discount', 'Mid Discount', 'High Discount']
+
+      - name: payment_method
+        description: Payment method used at checkout.
+
+      - name: purchase_channel
+        description: Channel through which the sale was made.
+
+      - name: business_season
+        description: Business season label derived from visit_date month.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Halloween Season', 'Summer', 'Winter', 'Spring', 'Fall']
+
+      - name: updated_at
+        description: Last modification timestamp from the source system.
+        tests:
+          - not_null

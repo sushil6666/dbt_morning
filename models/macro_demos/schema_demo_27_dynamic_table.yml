@@ -1,0 +1,75 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_27_dynamic_table.yml
+# ---------------------------------------------------------------------------
+# Documents the dynamic_table custom materialization demo (demo_27).
+#
+# Dynamic Tables are Snowflake-native continuously-refreshed objects.
+# dbt does not ship a built-in dynamic_table materialization, so this
+# demo uses the custom macro at:
+#   macros/materializations/snowflake/dynamic_table.sql
+#
+# Run the demo:
+#   dbt run     -s demo_27_dynamic_table   -- creates the dynamic table
+#   dbt compile -s demo_27_dynamic_table   -- inspect emitted DDL
+#
+# Validate in Snowflake:
+#   SHOW DYNAMIC TABLES LIKE 'DEMO_27_DYNAMIC_TABLE%';
+# ---------------------------------------------------------------------------
+
+models:
+
+  - name: demo_27_dynamic_table
+    description: >
+      Demonstrates the custom `dynamic_table` materialization for Snowflake.
+
+      Creates a DYNAMIC TABLE that Snowflake automatically refreshes within
+      1 minute of any change in the upstream fct_sales table.  The query
+      aggregates sales revenue by visit_date, category, and location —
+      a typical real-time analytics pattern where dashboards need
+      sub-minute freshness without manual scheduling.
+
+      Key config options exercised:
+        target_lag   = '1 minute'  — data is at most 1 minute stale
+        warehouse    = 'COMPUTE_WH'
+        refresh_mode = 'AUTO'      — incremental when possible, full fallback
+        initialize   = 'ON_CREATE' — populated immediately on first dbt run
+
+      Prerequisites:
+        GRANT CREATE DYNAMIC TABLE ON SCHEMA <db>.<schema> TO ROLE <dbt_role>;
+    config:
+      materialized: dynamic_table
+      tags: ['macro_demo', 'demo_27', 'custom_materialization']
+      meta:
+        target_lag: '1 minute'
+        warehouse: COMPUTE_WH
+        refresh_mode: AUTO
+        initialize: ON_CREATE
+    columns:
+      - name: visit_date
+        description: Date of the park visit (aggregation key).
+        tests:
+          - not_null
+      - name: category
+        description: Sales category (e.g., Food & Bev, Merchandise, Ticket).
+        tests:
+          - not_null
+      - name: location
+        description: Park location where the transaction occurred.
+        tests:
+          - not_null
+      - name: transaction_count
+        description: Number of transactions for this date / category / location combination.
+        tests:
+          - not_null
+      - name: total_revenue
+        description: Sum of total_amount across all transactions in the group.
+        tests:
+          - not_null
+      - name: avg_transaction_value
+        description: Average transaction amount within the group.
+      - name: min_transaction_value
+        description: Smallest individual transaction amount in the group.
+      - name: max_transaction_value
+        description: Largest individual transaction amount in the group.

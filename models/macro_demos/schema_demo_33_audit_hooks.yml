@@ -1,0 +1,132 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_33_audit_hooks.yml
+# ---------------------------------------------------------------------------
+# Documents the pre-hook + post-hook audit logging pattern (demo_33).
+#
+# Macro pair: macros/19_audit/run_audit.sql
+#   log_model_start() — pre-hook:  writes 'running' record to DBT_RUN_LOG
+#   log_model_end()   — post-hook: updates record to 'success' + row count
+#
+# Audit log lives at: SF_TEST.AUDIT.DBT_RUN_LOG
+#
+# Run:
+#   dbt build --select demo_33_audit_hooks --exclude "tag:elementary-tests"
+#
+# Inspect audit log after each run:
+#   SELECT * FROM SF_TEST.AUDIT.DBT_RUN_LOG ORDER BY started_at DESC;
+# ---------------------------------------------------------------------------
+
+models:
+
+  - name: demo_33_audit_hooks
+    description: >
+      Customer lifetime value (LTV) summary with pre/post hook audit logging.
+
+      **Execution order:**
+        1. pre_hook  → log_model_start(): creates SF_TEST.AUDIT.DBT_RUN_LOG if
+           needed, inserts a row with status='running' and started_at=now.
+        2. dbt builds the table (customer LTV aggregation below).
+        3. post_hook → log_model_end(): updates that row with status='success',
+           rows_loaded=COUNT(*), completed_at=now, elapsed_seconds=wall-clock.
+
+      **Why this model needs audit logs:**
+        Customer LTV feeds the CRM, loyalty tier engine, and VIP upsell
+        recommendation. Finance, CRM, and ops all depend on it being fresh.
+        The audit log answers: "Is the LTV data from today's run or yesterday's?"
+        and "How long did the build take — within SLA?"
+
+      **dbt_run_id column:** stamped on every output row so a BI consumer can
+        cross-reference the row's lineage back to DBT_RUN_LOG and then into
+        SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY.
+
+      **Audit log schema (SF_TEST.AUDIT.DBT_RUN_LOG):**
+        run_id          — dbt invocation_id (same for all models in one `dbt run`)
+        model_name      — model that wrote the record
+        target_env      — dev / uat / prod
+        status          — 'running' → 'success'
+        started_at      — pre-hook timestamp (UTC)
+        completed_at    — post-hook timestamp (UTC)
+        rows_loaded     — COUNT(*) of the built table
+        elapsed_seconds — wall-clock seconds for the full model build
+    config:
+      materialized: table
+      tags: ['macro_demo', 'demo_33', 'pre_hook', 'post_hook', 'audit']
+    columns:
+      - name: customer_id
+        description: Customer identifier. FK to dim_customers.
+        tests:
+          - not_null
+          - unique
+      - name: loyalty_tier
+        description: Gold / Silver / Bronze from dim_customers.
+        tests:
+          - not_null
+      - name: customer_value_segment
+        description: High Value / Mid Value / Standard from dim_customers.
+        tests:
+          - not_null
+      - name: is_vip_member
+        description: Boolean VIP flag from dim_customers.
+        tests:
+          - not_null
+      - name: registration_date
+        description: Date the customer account was first created.
+        tests:
+          - not_null
+      - name: total_visits
+        description: Lifetime count of park visits recorded in fct_visits.
+        tests:
+          - not_null
+      - name: first_visit_date
+        description: Earliest visit_date in fct_visits for this customer.
+        tests:
+          - not_null
+      - name: last_visit_date
+        description: Most recent visit_date in fct_visits for this customer.
+        tests:
+          - not_null
+      - name: active_days
+        description: >
+          Days between first and last visit. 0 for single-visit customers.
+          Use to distinguish one-time visitors from returning guests.
+      - name: lifetime_spend
+        description: Sum of total_visit_spend across all visits. Primary LTV measure.
+        tests:
+          - not_null
+      - name: avg_spend_per_visit
+        description: Mean total_visit_spend per visit. Rounded to 2dp.
+      - name: avg_satisfaction_rating
+        description: Mean avg_rating across all visits. Nullable when no ratings exist.
+      - name: avg_monthly_spend
+        description: >
+          lifetime_spend divided by active months (first to last visit).
+          NULL for single-visit customers (active_months = 0).
+          Spend velocity metric for churn and upgrade propensity models.
+      - name: ltv_segment
+        description: >
+          Spend-based LTV bucket:
+          Platinum (>= $500), Gold (>= $200), Silver (>= $50), Bronze (< $50).
+          Used for CRM audience segmentation and marketing spend allocation.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Platinum', 'Gold', 'Silver', 'Bronze']
+      - name: dbt_updated_at
+        description: >
+          Timestamp (TIMESTAMP_NTZ, UTC) when this row was written by dbt.
+          Refreshed on every full rebuild. Use to confirm data freshness
+          without querying the audit log.
+        tests:
+          - not_null
+      - name: dbt_run_id
+        description: >
+          dbt invocation_id of the run that produced this row.
+          Cross-reference with SF_TEST.AUDIT.DBT_RUN_LOG.run_id to retrieve
+          elapsed_seconds, rows_loaded, and started_at for this build.
+          Also matches PARSE_JSON(QUERY_TAG):run_id in QUERY_HISTORY when
+          the apply_query_tag macro is active.
+        tests:
+          - not_null

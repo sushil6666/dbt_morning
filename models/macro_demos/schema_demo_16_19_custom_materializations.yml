@@ -1,0 +1,112 @@
+version: 2
+
+models:
+
+  - name: demo_16_temp_table
+    description: >
+      Tests the custom temp_table materialization.
+      Creates a TEMPORARY TABLE in Snowflake scoped to the session.
+      Holds a visit-summary aggregation grouped by ticket_type.
+    config:
+      materialized: temp_table
+      tags: ['macro_demo', 'demo_16', 'custom_materialization']
+    columns:
+      - name: ticket_type
+        description: Ticket category
+      - name: total_visits
+        description: Count of visits for this ticket type
+      - name: avg_spend
+        description: Average total visit spend
+      - name: avg_rating
+        description: Average customer rating
+      - name: first_visit
+        description: Earliest visit date recorded
+      - name: last_visit
+        description: Latest visit date recorded
+
+  - name: demo_17_hybrid_table
+    description: >
+      Tests the custom hybrid_table materialization.
+      Creates a Snowflake HYBRID TABLE with ticket_id as PRIMARY KEY.
+      Hybrid tables support both analytical and row-level operational workloads.
+      The materialization will raise a compiler error if primary_key config is absent.
+    config:
+      materialized: hybrid_table
+      tags: ['macro_demo', 'demo_17', 'custom_materialization']
+    columns:
+      - name: ticket_id
+        description: Primary key — uniquely identifies each visit ticket
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Foreign key to the customer dimension
+        tests:
+          - not_null
+      - name: visit_date
+        description: Date of the park visit
+        tests:
+          - not_null
+      - name: ticket_type
+        description: Type of ticket purchased
+        tests:
+          - not_null
+      - name: ticket_price
+        description: Face value of the ticket
+      - name: in_park_spend
+        description: Additional spend inside the park
+      - name: total_visit_spend
+        description: ticket_price + in_park_spend
+      - name: avg_rating
+        description: Customer satisfaction rating (1–5)
+
+  - name: demo_18_event_table
+    description: >
+      Tests the custom event_table materialization.
+      Creates a Snowflake EVENT TABLE with 7-day data retention.
+      Event tables are schema-only DDL objects — rows are populated by
+      Snowflake's telemetry routing (logs, traces, spans), not via user DML.
+      No column tests are applicable because no rows are inserted by dbt.
+    config:
+      materialized: event_table
+      tags: ['macro_demo', 'demo_18', 'custom_materialization']
+
+  - name: demo_19_iceberg_table
+    description: >
+      Tests the custom iceberg_table materialization.
+      Creates a Snowflake-managed ICEBERG TABLE backed by an external volume.
+      PREREQUISITE: external volume 'my_iceberg_volume' must be created by a
+      Snowflake admin before this model can run. See model file for DDL.
+      Holds ticket sales data — a realistic Iceberg use case for large
+      analytical datasets queryable from external engines.
+    config:
+      materialized: iceberg_table
+      tags: ['macro_demo', 'demo_19', 'custom_materialization']
+    columns:
+      - name: transaction_id
+        description: Unique identifier for each sales transaction
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Foreign key to the customer dimension
+        tests:
+          - not_null
+      - name: visit_date
+        description: Date of the transaction
+        tests:
+          - not_null
+      - name: category
+        description: Product category (food, merchandise, etc.)
+      - name: item_name
+        description: Name of the item sold
+      - name: quantity
+        description: Units purchased
+      - name: unit_price
+        description: Price per unit
+      - name: total_amount
+        description: quantity * unit_price
+      - name: payment_method
+        description: Payment method used
+      - name: location
+        description: Location within the park where the sale occurred

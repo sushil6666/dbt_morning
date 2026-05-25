@@ -1,0 +1,312 @@
+version: 2
+
+models:
+
+  - name: stg_park_assets__rides
+    description: >
+      Staged ride and attraction catalog from `RAW.raw_rides`.
+      One row per physical ride asset. Grain is `ride_id`.
+
+      Types are cast, `min_height_cm` is coerced to NULL when the source value is 0
+      (meaning no height restriction), and `is_haunted` is cast to boolean.
+      This model is the canonical reference for all ride attributes used downstream
+      in `int_ride_metrics`, `dim_rides`, and feedback joins.
+
+      All rides are included regardless of operational status — apply `status` filters
+      in consuming models as needed.
+
+      Owner: operations@themeparkanalytics.com
+    columns:
+      - name: ride_id
+        description: >
+          Natural primary key for the ride, sourced from `raw_rides.ride_id`. Varchar.
+          Use for joins to feedback, fact tables, and dimension models.
+        tests:
+          - unique
+          - not_null
+
+      - name: ride_name
+        description: >
+          Display name of the ride or attraction as shown to guests.
+          Treated as a natural key — should be unique. Duplicates trigger a stored-failure
+          test for operations investigation.
+        tests:
+          - not_null
+
+      - name: ride_type
+        description: >
+          Physical category of the ride.
+          Values: `roller_coaster`, `dark_ride`, `drop_tower`, `water_ride`,
+          `carousel`, `kiddie_ride`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['roller_coaster', 'dark_ride', 'drop_tower',
+                         'water_ride', 'carousel', 'kiddie_ride']
+
+      - name: min_height_cm
+        description: >
+          Minimum rider height requirement in centimetres. **NULL** when there is no height
+          restriction — source value of 0 is converted via `NULLIF(min_height_cm, 0)`.
+          Do not interpret NULL as missing data; it means unrestricted access.
+
+      - name: thrill_level
+        description: >
+          Subjective thrill intensity assigned by the operations team.
+          Values: `low`, `medium`, `high`, `extreme`. Downstream models derive a numeric
+          `fear_level` (1–5) from this column — see the `fear_level_mapping` doc block.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['low', 'medium', 'high', 'extreme']
+
+      - name: capacity_per_hour
+        description: >
+          Maximum number of riders the attraction can process per hour under normal
+          operating conditions. Integer. Used for utilisation and throughput analytics.
+        tests:
+          - not_null
+
+      - name: zone
+        description: >
+          Named park zone where the ride is located (e.g. 'Adventure Zone', 'Family Land').
+          Used for spatial analysis and staff zone assignment matching.
+        tests:
+          - not_null
+
+      - name: is_haunted
+        description: >
+          Boolean. TRUE when the ride belongs to the haunted/horror category and is
+          included in the external haunted house analytics pipeline. Rides where
+          `is_haunted = TRUE` are also surfaced in the `external_haunted` source views.
+        tests:
+          - not_null
+
+      - name: opened_date
+        description: >
+          Date the ride first opened to the public (YYYY-MM-DD). Used for ride age
+          calculations and cohort analysis of new vs. established attractions.
+        tests:
+          - not_null
+
+      - name: status
+        description: >
+          Current operational status of the ride.
+          Values: `active` (open to guests), `maintenance` (temporarily closed for service),
+          `closed` (permanently or seasonally shut). Filter on `status = 'active'` for
+          operational reporting that should exclude unavailable rides.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['active', 'maintenance', 'closed']
+
+      - name: avg_wait_minutes
+        description: >
+          Rolling average queue wait time in minutes as reported by operations.
+          Nullable — may be absent for rides with no queue data. Zero means no wait
+          (walk-on attraction), not missing data.
+
+      - name: updated_at
+        description: >
+          Staging surrogate for a last-updated timestamp. Set to `opened_date::timestamp`
+          because the raw source carries no dedicated update timestamp. For actual change
+          history, see the `snp_rides` snapshot.
+
+
+  - name: stg_employees__employees
+    description: >
+      Staged employee roster from `RAW.raw_employees`.
+      One row per employee. Grain is `employee_id`.
+
+      `full_name` is derived by concatenating `first_name` and `last_name`.
+      `hourly_rate` is cast to `numeric(10,2)`. `is_active` is cast to boolean.
+
+      PII note: `first_name`, `last_name`, and `hourly_rate` are employee PII. Downstream
+      mart models expose `estimated_annual_salary` which should be restricted to HR and
+      finance consumers.
+
+      Owner: operations@themeparkanalytics.com
+    columns:
+      - name: employee_id
+        description: >
+          Natural primary key for the employee, sourced from `raw_employees.employee_id`.
+          Varchar. Stable across refreshes.
+        tests:
+          - unique
+          - not_null
+
+      - name: first_name
+        description: Employee's given name. PII — restrict in shared environments.
+        tests:
+          - not_null
+
+      - name: last_name
+        description: Employee's family name. PII — restrict in shared environments.
+        tests:
+          - not_null
+
+      - name: full_name
+        description: >
+          Concatenation of `first_name || ' ' || last_name`. Derived in staging for
+          display convenience. Not unique — two employees can share a name.
+        tests:
+          - not_null
+
+      - name: department
+        description: >
+          Business unit the employee belongs to.
+          Values: `operations`, `food_beverage`, `merchandise`, `security`,
+          `guest_services`, `maintenance`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['operations', 'food_beverage', 'merchandise',
+                         'security', 'guest_services', 'maintenance']
+
+      - name: role
+        description: >
+          Job title of the employee within their department (e.g. 'Ride Operator',
+          'Supervisor', 'Team Lead'). Free-text from the HR system — not normalised.
+
+      - name: hire_date
+        description: >
+          Date the employee was hired (YYYY-MM-DD). Used to calculate `years_of_service`
+          in `dim_employees` and for tenure-based staffing analytics.
+        tests:
+          - not_null
+
+      - name: hourly_rate
+        description: >
+          Current hourly compensation rate in USD, cast to `numeric(10,2)`. Sensitive HR
+          data — restrict to HR and finance consumers. Downstream: `dim_employees.
+          estimated_annual_salary` multiplies this by 40 hours × 52 weeks.
+        tests:
+          - not_null
+
+      - name: manager_id
+        description: >
+          Foreign key to the `employee_id` of the employee's direct manager within this
+          same table (self-referential). NULL for top-level managers who report directly
+          to park leadership. Used to build the manager hierarchy in `dim_employees`.
+
+      - name: is_active
+        description: >
+          Boolean. TRUE when the employee is currently employed at the park. FALSE for
+          terminated or on-leave staff. Filter on `is_active = TRUE` for operational
+          headcount and scheduling reports.
+        tests:
+          - not_null
+
+      - name: zone_assignment
+        description: >
+          Primary park zone the employee is assigned to. Nullable — back-office and
+          management staff are not assigned to a specific zone. Used to match staffing
+          coverage against ride zone demand.
+
+      - name: updated_at
+        description: >
+          Staging surrogate for a last-updated timestamp. Set to `hire_date::timestamp`
+          because the raw source carries no dedicated update timestamp. For change history,
+          see the `snp_employees` snapshot.
+
+
+  - name: stg_park_assets__ticket_types
+    description: >
+      Staged ticket type dimension **derived** from distinct `ticket_type` values in
+      `RAW.raw_tickets`. One row per unique ticket type. Grain is `ticket_id`.
+
+      Because the source does not carry a dedicated ticket type reference table, this model
+      derives it by aggregating raw ticket transactions. `price` is the average `base_price`
+      for each ticket type across all historical purchases. `ticket_id` is a deterministic
+      `ROW_NUMBER()` ordered by `ticket_type`.
+
+      Several columns (description, launch_date, house_category) are **always NULL** and are
+      stubbed for schema compatibility with the haunted house ticket schema.
+
+      For actual transaction-level prices, use `stg_sales__tickets`. This model is a
+      dimension reference only — do not use it for revenue calculations.
+
+      Owner: operations@themeparkanalytics.com
+    columns:
+      - name: ticket_id
+        description: >
+          Surrogate integer primary key assigned by `ROW_NUMBER() OVER (ORDER BY ticket_type)`.
+          Deterministic and stable as long as no new ticket types are introduced.
+        tests:
+          - unique
+          - not_null
+
+      - name: ticket_type_name
+        description: >
+          Canonical name of the ticket product, sourced from `raw_tickets.ticket_type`.
+          Values: `day_pass`, `weekend_pass`, `annual_pass`, `group_pass`.
+        tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
+
+      - name: description
+        description: >
+          Human-readable description of the ticket product. **Always NULL** — not available
+          in the raw source. Stubbed for schema compatibility.
+
+      - name: price
+        description: >
+          Average `base_price` across all historical purchases of this ticket type, cast to
+          `numeric(10,2)`. This is a **representative price**, not a transactional price.
+          For actual revenue, use `stg_sales__tickets.final_price`.
+        tests:
+          - not_null
+
+      - name: launch_date
+        description: >
+          Date the ticket product was introduced. **Always NULL** — not tracked in the
+          raw source. Stubbed for haunted house schema compatibility.
+
+      - name: includes_fast_pass
+        description: >
+          Boolean. TRUE for `weekend_pass` and `annual_pass`, which grant Fast Pass queue
+          access. FALSE for `day_pass` and `group_pass`.
+        tests:
+          - not_null
+
+      - name: includes_vip_benefits
+        description: >
+          Boolean. TRUE for `annual_pass` only, granting VIP lounge access and priority
+          boarding. FALSE for all other ticket types.
+        tests:
+          - not_null
+
+      - name: fear_level
+        description: >
+          Integer (2–5). Tier ranking for haunted house analytics compatibility.
+          `annual_pass` = 5, `weekend_pass` = 4, `day_pass` = 3, `group_pass` = 2.
+          This is a tier proxy, not a direct measure of ride intensity.
+        tests:
+          - not_null
+
+      - name: duration_minutes
+        description: >
+          Expected visit duration in minutes by ticket type: `annual_pass` = 240,
+          `weekend_pass` = 180, all others = 120. Derived approximation.
+        tests:
+          - not_null
+
+      - name: house_category
+        description: >
+          Haunted house product category. **Always NULL** — not available in the source.
+          Stubbed for schema compatibility.
+
+      - name: created_at
+        description: Set to `CURRENT_TIMESTAMP` at build time. Refreshes on every model run.
+
+      - name: updated_at
+        description: >
+          Set to `CURRENT_TIMESTAMP` at build time. Changes whenever the underlying
+          average price shifts due to new ticket purchases in the source.

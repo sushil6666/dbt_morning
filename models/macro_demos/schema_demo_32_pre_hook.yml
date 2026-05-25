@@ -1,0 +1,88 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_32_pre_hook.yml
+# ---------------------------------------------------------------------------
+# Documents demo_32_pre_hook: multi-hook list syntax with three real-world
+# Snowflake session parameter patterns.
+#
+# Pre-hooks fire in list order before the model SQL executes.
+# Each list element is a separate SQL call — no multi-statement issues.
+#
+# Run:
+#   dbt build --select demo_32_pre_hook --exclude "tag:elementary-tests"
+#
+# Verify WEEK_START hook:
+#   SELECT DISTINCT week_start_day FROM SF_TEST.MACRO_DEMOS.DEMO_32_PRE_HOOK
+#   → should always be 'Mon'
+#
+# Alternative macro form (same result, better reuse across models):
+#   pre_hook="set_session_params(timezone='UTC', week_start=1, use_cached_result=false)"
+# ---------------------------------------------------------------------------
+
+models:
+
+  - name: demo_32_pre_hook
+    description: >
+      Demonstrates the pre_hook list syntax with three industry-standard
+      Snowflake session parameters applied before the model runs:
+
+        1. TIMEZONE = 'UTC'          — locks timestamp interpretation so the
+           model produces identical results regardless of where dbt runs.
+
+        2. WEEK_START = 1 (Monday)   — anchors date_trunc('week') to ISO 8601
+           Monday-start. Theme-park ops runs Mon–Sun; without this hook,
+           weekly revenue buckets are off by one day (Sunday anchor).
+           Proof: week_start_day is always 'Mon' in the output.
+
+        3. USE_CACHED_RESULT = FALSE  — forces a live Snowflake re-execution
+           on every dbt run. Mandatory for financial/compliance models where
+           a 24-hour cached result would mask newly loaded data.
+
+      The model produces a weekly revenue summary per ticket type with a
+      running cumulative revenue window function, grouped by ISO week.
+
+      Reusable macro alternative (macros/18_session_settings/set_session_params.sql):
+        pre_hook="set_session_params(timezone='UTC', week_start=1, use_cached_result=false)"
+    config:
+      materialized: table
+      tags: ['macro_demo', 'demo_32', 'pre_hook']
+    columns:
+      - name: week_start
+        description: >
+          Monday-anchored ISO week start date (date_trunc('week') with WEEK_START=1).
+          Always a Monday — proves the WEEK_START pre-hook fired.
+        tests:
+          - not_null
+      - name: week_start_day
+        description: >
+          Day name of week_start derived from dayname(). Always 'Mon' when
+          the WEEK_START=1 pre-hook is active. Use this column to verify the
+          hook is firing correctly — if it reads 'Sun', the hook was skipped.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Mon']
+      - name: ticket_type
+        description: Ticket product type for this weekly bucket.
+        tests:
+          - not_null
+      - name: visit_count
+        description: Number of visits in this week for this ticket type.
+        tests:
+          - not_null
+      - name: total_revenue
+        description: Sum of total_visit_spend for this week and ticket type.
+        tests:
+          - not_null
+      - name: avg_spend_per_visit
+        description: Mean total_visit_spend for this week and ticket type.
+      - name: avg_rating
+        description: Mean avg_rating for visits in this week. Nullable when no ratings exist.
+      - name: running_revenue_by_type
+        description: >
+          Cumulative total_revenue per ticket_type ordered by week_start
+          (unbounded preceding → current row). Resets per ticket_type partition.
+        tests:
+          - not_null

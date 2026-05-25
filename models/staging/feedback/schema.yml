@@ -1,0 +1,226 @@
+version: 2
+
+models:
+
+  - name: stg_feedback__visitor_feedback
+    description: >
+      Staged guest satisfaction feedback submitted after park visits.
+      One row per feedback submission. Grain is `feedback_id`.
+
+      Sourced from `RAW.raw_feedback`. Types are cast; `rating` is cast to integer.
+      A derived column `rating_category` classifies the numeric rating into sentiment
+      tiers: `positive` (≥ 4), `neutral` (= 3), `negative` (≤ 2).
+
+      This model covers **all feedback categories** (ride, food, general, wait_times,
+      staff, cleanliness). For ride-specific feedback, filter on `ride_id IS NOT NULL`.
+      For haunted house feedback enriched with house attributes, use
+      `stg_feedback__haunted_visitor_feedback` instead.
+
+      Owner: guest-experience@themeparkanalytics.com
+    columns:
+      - name: feedback_id
+        description: >
+          Natural primary key for the feedback submission, sourced from
+          `raw_feedback.feedback_id`. Varchar.
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        description: >
+          Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
+          guest who submitted the feedback.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customer_data__customers')
+                field: customer_id
+
+      - name: visit_date
+        description: >
+          Date of the park visit the feedback refers to (YYYY-MM-DD). A single visit
+          may generate multiple feedback rows across different categories.
+        tests:
+          - not_null
+
+      - name: ride_id
+        description: >
+          Foreign key to `stg_park_assets__rides.ride_id`. Identifies the specific ride
+          the feedback is about. **NULL for general park feedback** (category = 'general',
+          'food', 'staff', 'cleanliness'). Always filter `ride_id IS NOT NULL` before
+          joining to ride-level models.
+
+      - name: rating
+        description: >
+          Overall satisfaction score submitted by the guest. Integer scale 1–5:
+          1 = very dissatisfied, 3 = neutral, 5 = very satisfied.
+          This is the canonical satisfaction metric used across all downstream models.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+
+      - name: category
+        description: >
+          Topic area the feedback relates to.
+          Values: `ride`, `food`, `general`, `wait_times`, `staff`, `cleanliness`.
+          For ride-specific analysis, filter to `category = 'ride'` AND `ride_id IS NOT NULL`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ride', 'food', 'general', 'wait_times', 'staff', 'cleanliness']
+
+      - name: sentiment
+        description: >
+          Pre-classified sentiment label from the source system — applied independently
+          of the `rating` value (may occasionally differ from `rating_category`).
+          Values: `positive`, `neutral`, `negative`.
+          For a data-derived sentiment classification, use `rating_category` instead.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+
+      - name: comments
+        description: >
+          Free-text comment submitted by the guest. Nullable — not all submissions
+          include a written comment. Do not use for automated sentiment analysis
+          without applying PII screening first (names may appear in free text).
+
+      - name: submitted_at
+        description: >
+          UTC timestamp when the feedback was submitted. Distinct from `visit_date` —
+          guests typically submit feedback days after their visit.
+        tests:
+          - not_null
+
+      - name: rating_category
+        description: >
+          Derived sentiment tier based on the numeric `rating`:
+          `positive` (rating ≥ 4), `neutral` (rating = 3), `negative` (rating ≤ 2).
+          Use this column for consistent sentiment bucketing in analytics models.
+          Note: may differ from the source `sentiment` column which is pre-classified
+          by the feedback platform independently.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['positive', 'neutral', 'negative']
+
+
+  - name: stg_feedback__haunted_visitor_feedback
+    description: >
+      Staged visitor feedback enriched with haunted house attributes, mapped from
+      `RAW.raw_feedback` joined to `external_haunted.haunted_houses` (is_haunted = TRUE).
+      One row per feedback record. Grain is `feedback_id`.
+
+      This model adapts the general feedback schema to the haunted house visitor schema,
+      enabling analytics models (`agg_happiest_houses`, `agg_fear_vs_ratings`, etc.) to
+      consume a consistent, enriched feedback view.
+
+      Several columns are **always NULL** because they are not available in the raw source:
+      `sale_id`, `ticket_price`, `includes_vip_benefits`, `includes_fast_pass`,
+      `customer_age`, `customer_gender`, `visit_hour`. These are stubbed for schema
+      compatibility. Models that require these fields (e.g. `agg_customer_spending_profile`)
+      are currently disabled pending upstream data availability.
+
+      Mapping notes:
+      - `haunted_house_name`: joined from rides where is_haunted = TRUE; defaults to
+        `'Unknown House'` when feedback has no matching `ride_id`.
+      - `fear_level`: derived from `thrill_level` using the standard mapping.
+      - `visitor_type`: uses `category` as a proxy (no direct visitor type in source).
+      - `would_recommend`: TRUE when `rating ≥ 4`.
+
+      Owner: guest-experience@themeparkanalytics.com
+    columns:
+      - name: feedback_id
+        description: >
+          Natural primary key for the feedback submission, sourced from
+          `raw_feedback.feedback_id`. Varchar.
+        tests:
+          - unique
+          - not_null
+
+      - name: sale_id
+        description: >
+          Foreign key to the ticket sale associated with this visit. **Always NULL** —
+          the raw feedback source does not link submissions to specific ticket sales.
+          Stubbed for haunted house schema compatibility.
+
+      - name: haunted_house_name
+        description: >
+          Name of the haunted house the feedback relates to, joined from
+          `external_haunted.haunted_houses` via `ride_id`. Defaults to `'Unknown House'`
+          when `ride_id` is NULL or matches no haunted ride.
+
+      - name: fear_level
+        description: "{{ doc('fear_level_mapping') }}"
+
+      - name: ticket_price
+        description: >
+          Price paid for the haunted house ticket. **Always NULL** — ticket price is
+          not stored in the feedback source. See `stg_external_haunted__haunted_house_tickets`
+          for ticket pricing data.
+
+      - name: includes_vip_benefits
+        description: >
+          Whether the ticket included VIP benefits. **Always NULL** — not available in
+          the feedback source. Stubbed for schema compatibility.
+
+      - name: includes_fast_pass
+        description: >
+          Whether the ticket included Fast Pass access. **Always NULL** — not available in
+          the feedback source. Stubbed for schema compatibility.
+
+      - name: visitor_type
+        description: >
+          Category proxy for visitor type, sourced from `raw_feedback.category`
+          (e.g. 'ride', 'food', 'general'). This is an approximation — no direct
+          visitor classification is recorded in the raw source.
+
+      - name: customer_age
+        description: >
+          Age of the visiting customer. **Always NULL** — not captured in the feedback
+          source. Stubbed for `agg_customer_spending_profile` schema compatibility
+          (that model is currently disabled).
+
+      - name: customer_gender
+        description: >
+          Gender of the visiting customer. **Always NULL** — not captured in the feedback
+          source. Stubbed for `agg_customer_spending_profile` schema compatibility.
+
+      - name: satisfaction_rating
+        description: >
+          Guest satisfaction score on a 1–5 scale, sourced from `raw_feedback.rating`
+          cast to integer. This is the primary satisfaction measure for all haunted house
+          analytics. Equivalent to `stg_feedback__visitor_feedback.rating`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+
+      - name: would_recommend
+        description: >
+          Boolean. TRUE when `satisfaction_rating ≥ 4`. Derived during staging as a
+          proxy for Net Promoter intent. Used in recommendation rate calculations across
+          `agg_happiest_houses`, `agg_visitor_recommendations`, and other analytics models.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: >
+          Date of the park visit the feedback refers to (YYYY-MM-DD). Used for time-series
+          and seasonal analysis of haunted house satisfaction.
+        tests:
+          - not_null
+
+      - name: visit_hour
+        description: >
+          Hour of the haunted house visit (0–23). **Always NULL** — time-of-day is not
+          captured in the raw feedback source. Stubbed for `agg_house_profitability_by_time`
+          schema compatibility (that model will show NULL-grouped rows when this is absent).

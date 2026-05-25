@@ -1,0 +1,421 @@
+version: 2
+
+models:
+
+  - name: stg_sales__tickets
+    description: >
+      Staged ticket purchase records combining all channels into a single view.
+      One row per ticket purchase. Grain is `ticket_id`.
+
+      Built by UNION ALL of `source('sales', 'ticket_sales_online')` (filtered to
+      `purchase_channel = 'online'`) and `source('sales', 'ticket_sales_physical')`
+      (filtered to `purchase_channel != 'online'`), both backed by `RAW.raw_tickets`.
+
+      `final_price` is the **primary revenue measure** for ticket reporting.
+      `is_discounted` is derived from whether `discount_amount > 0`.
+      Empty `promo_code` strings are coerced to NULL via `NULLIF`.
+
+      This is the canonical staging model for all ticket sales. Do not join directly
+      to `raw_tickets` — always use this model or its channel-specific variants.
+
+      Owner: revenue@themeparkanalytics.com
+    columns:
+      - name: ticket_id
+        description: >
+          Natural primary key for the ticket purchase, sourced from `raw_tickets.ticket_id`.
+          Varchar. Use for joins to visit-level models and fact tables.
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        description: >
+          Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
+          purchasing customer. Not null — all tickets in the raw source are linked to
+          a customer account.
+        tests:
+          - not_null
+
+      - name: ticket_type
+        description: >
+          Product type purchased. Values: `day_pass`, `weekend_pass`, `annual_pass`,
+          `group_pass`. This is the raw value from the source — for dimension attributes
+          (fast pass inclusion, VIP benefits), join to `dim_ticket_types`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
+
+      - name: purchase_date
+        description: >
+          Date the ticket was purchased (YYYY-MM-DD). May differ from `visit_date` when
+          tickets are bought in advance. Use `visit_date` for visit-day analytics and
+          `purchase_date` for sales/revenue booking analytics.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: >
+          Date the ticket is valid for park entry (YYYY-MM-DD). This is the calendar
+          date used in all visit-level fact tables and daily revenue aggregations.
+        tests:
+          - not_null
+
+      - name: purchase_channel
+        description: >
+          Channel through which the ticket was purchased.
+          Values: `online`, `in_park`, `kiosk`, `phone`.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['online', 'in_park', 'kiosk', 'phone', 'referral']
+
+      - name: base_price
+        description: "{{ doc('ticket_price_definition') }}"
+        tests:
+          - not_null
+
+      - name: discount_amount
+        description: "{{ doc('ticket_price_definition') }}"
+        tests:
+          - not_null
+
+      - name: final_price
+        description: >
+          Amount the customer actually paid in USD: `base_price - discount_amount`.
+          Cast to `numeric(10,2)`. This is the **primary revenue measure** for ticket
+          reporting. Always non-negative.
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 1000
+
+      - name: promo_code
+        description: >
+          Promotional or coupon code applied at purchase. NULL when no promo code was
+          used, or when the source carried an empty string (coerced via `NULLIF(promo_code, '')`).
+
+      - name: is_discounted
+        description: >
+          Boolean. TRUE when `discount_amount > 0`, indicating a promotional price was
+          applied. FALSE for full-price purchases. Derived during staging.
+        tests:
+          - not_null
+
+
+  - name: stg_sales__ticket_sales_online
+    description: >
+      Staged online ticket sales — a channel-specific view of `RAW.raw_tickets` filtered
+      to `purchase_channel = 'online'`. One row per online ticket sale. Grain is `sale_id`
+      (which equals `ticket_id`).
+
+      This model is an **input to `fct_all_ticket_sales`** via UNION ALL with
+      `stg_sales__ticket_sales_physical`. It is not intended for direct consumption in
+      BI tools — use `fct_all_ticket_sales` instead.
+
+      Caveats: `purchase_timestamp` and `visit_hour` are always NULL (not captured for
+      online sales). `payment_method` is hardcoded to `'credit_card'` as a proxy — the
+      raw source does not carry payment method for online purchases.
+
+      Owner: revenue@themeparkanalytics.com
+    columns:
+      - name: sale_id
+        description: >
+          Primary key for this sale record. Equal to `ticket_id` from the source.
+          Used as the grain key in `fct_all_ticket_sales`.
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        description: Foreign key to `stg_customer_data__customers.customer_id`.
+        tests:
+          - not_null
+
+      - name: ticket_id
+        description: >
+          The original ticket identifier from `raw_tickets`. Preserved alongside `sale_id`
+          for joins to `stg_sales__tickets` when ticket-level attributes are needed.
+        tests:
+          - not_null
+
+      - name: purchase_date
+        description: Date the ticket was purchased online (YYYY-MM-DD).
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: Date the ticket is valid for park entry (YYYY-MM-DD).
+        tests:
+          - not_null
+
+      - name: purchase_timestamp
+        description: >
+          Timestamp of the online purchase. **Always NULL** — precise purchase time is
+          not captured in the raw source for online transactions.
+
+      - name: ticket_price
+        description: >
+          Amount paid by the customer in USD (`final_price` from the raw source), cast
+          to `numeric(10,2)`. This is the **primary revenue measure** for this channel.
+          See also: `{{ doc('ticket_price_definition') }}`
+        tests:
+          - not_null
+
+      - name: discount_percent
+        description: >
+          Discount applied as a percentage of base price:
+          `ROUND((discount_amount / base_price) * 100, 2)`. Zero when `base_price = 0`
+          to avoid division by zero. Zero also when no discount was applied.
+        tests:
+          - not_null
+
+      - name: visit_hour
+        description: >
+          Hour of the park visit (0–23). **Always NULL** for online sales — not captured
+          in the source. Populated for physical sales where time-of-day is available.
+
+      - name: payment_method
+        description: >
+          Payment method used. Hardcoded to `'credit_card'` for all online sales — the
+          raw source does not record payment method for this channel. Do not use for
+          payment method analysis without filtering to physical sales.
+        tests:
+          - not_null
+
+      - name: purchase_channel
+        description: Hardcoded to `'online'` for all rows in this model.
+        tests:
+          - not_null
+
+      - name: is_online
+        description: Boolean. Always TRUE for this model (online channel only).
+        tests:
+          - not_null
+
+
+  - name: stg_sales__ticket_sales_physical
+    description: >
+      Staged physical-channel ticket sales — a channel-specific view of `RAW.raw_tickets`
+      filtered to `purchase_channel != 'online'` (covers `in_park`, `kiosk`, `phone`).
+      One row per physical ticket sale. Grain is `sale_id` (which equals `ticket_id`).
+
+      This model is an **input to `fct_all_ticket_sales`** via UNION ALL with
+      `stg_sales__ticket_sales_online`. It is not intended for direct BI consumption —
+      use `fct_all_ticket_sales` instead.
+
+      Caveats: `purchase_timestamp` and `visit_hour` are always NULL (not captured for
+      physical sales in the current source). `payment_method` is hardcoded to `'cash'`
+      as a proxy — the raw source does not carry payment method for physical transactions.
+
+      Owner: revenue@themeparkanalytics.com
+    columns:
+      - name: sale_id
+        description: >
+          Primary key for this sale record. Equal to `ticket_id` from the source.
+          Used as the grain key in `fct_all_ticket_sales`.
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        description: Foreign key to `stg_customer_data__customers.customer_id`.
+        tests:
+          - not_null
+
+      - name: ticket_id
+        description: >
+          The original ticket identifier from `raw_tickets`. Preserved alongside `sale_id`
+          for joins to `stg_sales__tickets` when ticket-level attributes are needed.
+        tests:
+          - not_null
+
+      - name: purchase_date
+        description: Date the ticket was purchased (YYYY-MM-DD).
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: Date the ticket is valid for park entry (YYYY-MM-DD).
+        tests:
+          - not_null
+
+      - name: purchase_timestamp
+        description: >
+          Timestamp of the physical purchase. **Always NULL** — precise purchase time is
+          not captured in the raw source for physical transactions.
+
+      - name: ticket_price
+        description: >
+          Amount paid by the customer in USD (`final_price` from the raw source), cast
+          to `numeric(10,2)`. Primary revenue measure for this channel.
+        tests:
+          - not_null
+
+      - name: discount_percent
+        description: >
+          Discount as a percentage of base price. Zero when no discount was applied or
+          when `base_price = 0` (division-by-zero guard).
+        tests:
+          - not_null
+
+      - name: visit_hour
+        description: >
+          Hour of the park visit (0–23). **Always NULL** in the current data — physical
+          transaction records do not include time-of-day in this source version.
+
+      - name: payment_method
+        description: >
+          Payment method used. Hardcoded to `'cash'` for all physical sales — the raw
+          source does not record payment method for this channel. Do not use for payment
+          method analysis.
+        tests:
+          - not_null
+
+      - name: purchase_channel
+        description: >
+          Hardcoded to `'physical'` for all rows in this model, indicating an in-person,
+          kiosk, or phone purchase.
+        tests:
+          - not_null
+
+      - name: is_online
+        description: Boolean. Always FALSE for this model (physical channel only).
+        tests:
+          - not_null
+
+
+  - name: stg_sales_transactions__sales_transactions
+    description: >
+      Staged in-park point-of-sale transactions for food, merchandise, games, and photos.
+      One row per line item sold. Grain is `transaction_id`.
+
+      Sourced from `RAW.raw_sales_transactions`. Types are cast; no business logic is
+      applied beyond renaming and type casting. This model represents all in-park spending
+      that occurs **after** park entry — it does not include ticket purchases (see
+      `stg_sales__tickets`).
+
+      Use `total_amount` as the primary in-park spend measure. For combined visit spend
+      (ticket + in-park), see `int_customer_visits` or `fct_visits`.
+
+      Owner: revenue@themeparkanalytics.com
+    columns:
+      - name: transaction_id
+        description: >
+          Natural primary key for the POS transaction line item, sourced from
+          `raw_sales_transactions.transaction_id`. Varchar.
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        description: >
+          Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
+          customer who made the in-park purchase.
+        tests:
+          - not_null
+
+      - name: visit_date
+        description: >
+          Date of the park visit when the purchase was made (YYYY-MM-DD). Use this to
+          join in-park spend to ticket purchases in `int_customer_visits`.
+        tests:
+          - not_null
+
+      - name: category
+        description: >
+          High-level product category of the purchased item.
+          Values: `food`, `merchandise`, `game`, `photo`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['food', 'merchandise', 'game', 'photo']
+
+      - name: item_name
+        description: >
+          Name of the product or item sold (e.g. 'Churro', 'Park T-Shirt', 'Photo Package').
+          Free-text from the POS system — not normalised or deduplicated.
+        tests:
+          - not_null
+
+      - name: quantity
+        description: >
+          Number of units purchased in this line item. Integer. Always ≥ 1.
+          To get total spend, multiply by `unit_price` (equals `total_amount`).
+        tests:
+          - not_null
+
+      - name: unit_price
+        description: >
+          Price per single unit at the time of sale, cast to `numeric(10,2)`.
+          This is the price that was charged, not a catalogue price — may reflect
+          promotional pricing.
+        tests:
+          - not_null
+
+      - name: total_amount
+        description: >
+          Total line item value: `quantity × unit_price`, cast to `numeric(10,2)`.
+          Additive measure — safe to SUM across any dimension.
+          This is the **primary in-park spend measure**.
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 5000
+
+      - name: payment_method
+        description: >
+          Payment method used to complete the transaction.
+          Values: `credit_card`, `cash`, `kiosk`, `mobile`.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['credit_card', 'cash', 'kiosk', 'mobile']
+
+      - name: location
+        description: >
+          Name of the outlet or stand where the sale occurred (e.g. 'Main Street Grill',
+          'Souvenir Shack', 'Arcade Zone'). Free-text from the POS system.
+        tests:
+          - not_null
+
+
+# ---------------------------------------------------------------------------
+# Unit Tests
+# ---------------------------------------------------------------------------
+
+unit_tests:
+
+  # ── stg_sales__tickets: is_discounted flag ────────────────────────────────
+  - name: test_is_discounted_flag
+    model: stg_sales__tickets
+    description: >
+      Verifies the is_discounted CASE expression:
+        TRUE  when discount_amount > 0
+        FALSE when discount_amount = 0
+      Sources both online and physical inputs; physical is empty here since
+      we only need to test the CASE logic, not the UNION ALL routing.
+    given:
+      - input: source('sales', 'ticket_sales_online')
+        rows:
+          - {ticket_id: 'TK1', customer_id: 'C1', ticket_type: 'day_pass',
+             purchase_date: '2024-01-15', visit_date: '2024-01-20',
+             purchase_channel: 'online', base_price: 100.00,
+             discount_amount: 20.00, final_price: 80.00, promo_code: 'SAVE20'}
+          - {ticket_id: 'TK2', customer_id: 'C2', ticket_type: 'day_pass',
+             purchase_date: '2024-01-15', visit_date: '2024-01-20',
+             purchase_channel: 'online', base_price: 100.00,
+             discount_amount: 0.00, final_price: 100.00, promo_code: ''}
+      - input: source('sales', 'ticket_sales_physical')
+        rows: []
+    expect:
+      rows:
+        - {ticket_id: 'TK1', is_discounted: true}
+        - {ticket_id: 'TK2', is_discounted: false}

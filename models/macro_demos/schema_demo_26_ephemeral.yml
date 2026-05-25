@@ -1,0 +1,199 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_26_ephemeral.yml
+# ---------------------------------------------------------------------------
+# Documents the ephemeral materialization demo (demo_26).
+#
+# Two models work together:
+#   demo_26_ephemeral_base     — ephemeral; never creates a DB object.
+#                                Injected as a CTE into every consumer.
+#   demo_26_ephemeral_consumer — view; references the ephemeral base.
+#                                Compiled SQL contains the base SQL inline.
+#
+# Verify the CTE injection with:
+#   dbt compile -s demo_26_ephemeral_consumer
+#   cat target/compiled/<project>/models/macro_demos/demo_26_ephemeral_consumer.sql
+# ---------------------------------------------------------------------------
+
+models:
+
+  # -------------------------------------------------------------------------
+  # demo_26_ephemeral_base  (ephemeral — no DB object created)
+  # -------------------------------------------------------------------------
+  - name: demo_26_ephemeral_base
+    description: >
+      Ephemeral enrichment layer over stg_sales_transactions.
+      Adds spending_tier (low/mid/high), revenue_category, and an
+      is_high_value boolean flag to each transaction row.
+
+      Because materialized = 'ephemeral', dbt never issues a CREATE
+      statement for this model. Its SQL is compiled inline as a CTE
+      inside every downstream model that refs it.
+    config:
+      materialized: ephemeral
+      tags: ['macro_demo', 'demo_26', 'ephemeral']
+    columns:
+      - name: transaction_id
+        description: Source transaction identifier.
+        tests:
+          - not_null
+      - name: customer_id
+        description: Foreign key to dim_customers.
+        tests:
+          - not_null
+      - name: visit_date
+        description: Date of the park visit.
+        tests:
+          - not_null
+      - name: category
+        description: Raw category from the source system.
+      - name: item_name
+        description: Name of the purchased item.
+      - name: quantity
+        description: Number of units purchased.
+      - name: unit_price
+        description: Price per unit in USD.
+      - name: total_amount
+        description: Total transaction value (quantity × unit_price).
+      - name: payment_method
+        description: Payment method used (cash, card, etc.).
+      - name: location
+        description: Park location or outlet where the transaction occurred.
+      - name: spending_tier
+        description: >
+          Bucketed spend label derived from total_amount.
+          low  = < $40  |  mid = $40–$99  |  high = $100+
+        tests:
+          - not_null
+          - accepted_values:
+                arguments:
+                  values: ['low', 'mid', 'high']
+      - name: revenue_category
+        description: >
+          Broad revenue bucket mapped from the raw category field.
+          One of: Food & Beverage, Merchandise, Ticket, Other.
+        tests:
+          - not_null
+      - name: is_high_value
+        description: TRUE when total_amount >= $100, FALSE otherwise.
+        tests:
+          - not_null
+
+  # -------------------------------------------------------------------------
+  # demo_26_ephemeral_consumer  (view — shows the CTE injection)
+  # -------------------------------------------------------------------------
+  - name: demo_26_ephemeral_consumer
+    description: >
+      Aggregates the enriched transaction data produced by
+      demo_26_ephemeral_base into a revenue summary grouped by
+      revenue_category, spending_tier, and payment_method.
+
+      Because demo_26_ephemeral_base is ephemeral, its SQL is injected
+      as a CTE (dbt__cte) directly into this model's compiled SQL.
+      No separate query is ever issued for the base model.
+
+      Run `dbt compile -s demo_26_ephemeral_consumer` and inspect
+      target/compiled/ to observe the injected CTE in the output.
+    config:
+      materialized: view
+      tags: ['macro_demo', 'demo_26', 'ephemeral']
+    columns:
+      - name: revenue_category
+        description: Broad category (Food & Beverage, Merchandise, Ticket, Other).
+        tests:
+          - not_null
+      - name: spending_tier
+        description: Spend bucket — low, mid, or high.
+        tests:
+          - not_null
+          - accepted_values:
+                arguments:
+                  values: ['low', 'mid', 'high']
+      - name: payment_method
+        description: Payment method for this group.
+        tests:
+          - not_null
+      - name: transaction_count
+        description: Number of transactions in this group.
+        tests:
+          - not_null
+      - name: total_revenue
+        description: Sum of total_amount for this group, in USD.
+        tests:
+          - not_null
+      - name: avg_transaction_value
+        description: Mean transaction value (total_revenue / transaction_count).
+      - name: high_value_count
+        description: Number of transactions with total_amount >= $100.
+      - name: high_value_pct
+        description: Percentage of transactions that are high-value (0–100).
+
+# ---------------------------------------------------------------------------
+# Unit Tests
+# ---------------------------------------------------------------------------
+# Run with: dbt test --select demo_26_ephemeral_base demo_26_ephemeral_consumer
+# Or just:  dbt test (unit tests run alongside data tests)
+# ---------------------------------------------------------------------------
+
+unit_tests:
+
+  # ── Test 1: spending_tier CASE boundaries ─────────────────────────────────
+  - name: test_spending_tier_boundaries
+    model: demo_26_ephemeral_base
+    description: >
+      Verifies the CASE thresholds for spending_tier and is_high_value:
+        high  = total_amount >= 100
+        mid   = total_amount >= 40 (and < 100)
+        low   = total_amount <  40
+      Tests exact boundary values (100, 99.99, 40, 39.99) and a clear high case.
+    given:
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows:
+          - {transaction_id: 'T1', category: 'food', total_amount: 150.00, payment_method: 'card'}
+          - {transaction_id: 'T2', category: 'food', total_amount: 100.00, payment_method: 'card'}
+          - {transaction_id: 'T3', category: 'food', total_amount:  99.99, payment_method: 'card'}
+          - {transaction_id: 'T4', category: 'food', total_amount:  40.00, payment_method: 'card'}
+          - {transaction_id: 'T5', category: 'food', total_amount:  39.99, payment_method: 'card'}
+    expect:
+      rows:
+        - {transaction_id: 'T1', spending_tier: 'high', is_high_value: true}
+        - {transaction_id: 'T2', spending_tier: 'high', is_high_value: true}
+        - {transaction_id: 'T3', spending_tier: 'mid',  is_high_value: false}
+        - {transaction_id: 'T4', spending_tier: 'mid',  is_high_value: false}
+        - {transaction_id: 'T5', spending_tier: 'low',  is_high_value: false}
+
+  # ── Test 2: revenue_category ILIKE pattern mapping ────────────────────────
+  - name: test_revenue_category_ilike_mapping
+    model: demo_26_ephemeral_base
+    description: >
+      Verifies the ILIKE patterns that map raw category strings to revenue buckets:
+        %food% or %bev%  → Food & Beverage
+        %merch%          → Merchandise
+        %ticket%         → Ticket
+        anything else    → Other
+      Uses case-mixed strings to confirm case-insensitive matching.
+    given:
+      - input: ref('stg_sales_transactions__sales_transactions')
+        rows:
+          - {transaction_id: 'T1', category: 'Fast Food',      total_amount: 50, payment_method: 'card'}
+          - {transaction_id: 'T2', category: 'Craft Bev',      total_amount: 50, payment_method: 'card'}
+          - {transaction_id: 'T3', category: 'Gift Merch',     total_amount: 50, payment_method: 'card'}
+          - {transaction_id: 'T4', category: 'Ticket Upgrade', total_amount: 50, payment_method: 'card'}
+          - {transaction_id: 'T5', category: 'Parking',        total_amount: 50, payment_method: 'card'}
+    expect:
+      rows:
+        - {transaction_id: 'T1', revenue_category: 'Food & Beverage'}
+        - {transaction_id: 'T2', revenue_category: 'Food & Beverage'}
+        - {transaction_id: 'T3', revenue_category: 'Merchandise'}
+        - {transaction_id: 'T4', revenue_category: 'Ticket'}
+        - {transaction_id: 'T5', revenue_category: 'Other'}
+
+  # ── Test 3: consumer aggregation + high_value_pct ─────────────────────────
+  # dbt-fusion 2.0 preview limitation: unit-testing a non-ephemeral model
+  # that references an ephemeral upstream fails during schema inference
+  # ("cannot resolve schema for __dbt__cte__<name>") regardless of whether
+  # the ephemeral model or its own inputs are mocked.  This test is omitted
+  # until dbt-fusion adds full ephemeral-CTE support for unit tests.
+  # The consumer's GROUP BY / ROUND / NULLIF logic is low-risk given that
+  # the base model's classification logic is covered by the two tests above.

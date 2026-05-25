@@ -1,0 +1,144 @@
+version: 2
+
+models:
+
+  - name: dim_dates
+    description: >
+      Date dimension spanning the full project date spine. One row per calendar day.
+      Grain is `date_day`.
+
+      Generated using `dbt_utils.date_spine` from `var('date_spine_start')` (default
+      2020-01-01) to `var('date_spine_end')` (default 2026-12-31). To extend the range,
+      update these variables in `dbt_project.yml` or override via CLI.
+
+      Every fact table and aggregate model in this project joins to `dim_dates` on
+      `visit_date = date_day` to enrich transaction records with calendar attributes.
+
+      Special flags:
+        - `is_halloween`: TRUE only on October 31 of any year
+        - `days_to_halloween`: positive = days until Oct 31 of the SAME year,
+          negative = days since Oct 31 of the same year
+        - `business_season`: seasonal bucket used across all analytics models —
+          see `{{ doc('business_season_definition') }}`
+
+      Owner: analytics@themeparkanalytics.com
+    columns:
+      - name: date_day
+        description: >
+          Calendar date. Primary key of this dimension. All fact tables join here.
+          Data type: DATE.
+        tests:
+          - unique
+          - not_null
+
+      - name: year
+        description: >
+          Four-digit calendar year (e.g. 2024). Alias of `year_number` — both columns
+          carry the same value.
+        tests:
+          - not_null
+
+      - name: year_number
+        description: >
+          Four-digit calendar year (e.g. 2024). Duplicate of `year` — included for
+          naming consistency with other date dimension conventions.
+        tests:
+          - not_null
+
+      - name: month_number
+        description: >
+          Calendar month as an integer (1 = January, 12 = December).
+        tests:
+          - not_null
+
+      - name: month_name
+        description: >
+          Calendar month as a short name (e.g. 'Jan', 'Oct'). Sourced from Snowflake's
+          `MONTHNAME()` function — format is the three-letter abbreviation.
+        tests:
+          - not_null
+
+      - name: day_number
+        description: Day of the month as an integer (1–31).
+        tests:
+          - not_null
+
+      - name: day_of_week_number
+        description: >
+          Day of the week as an integer. Snowflake convention: 0 = Sunday, 6 = Saturday.
+          Used internally for `is_weekend` calculation.
+        tests:
+          - not_null
+
+      - name: day_of_week
+        description: >
+          Day of the week as a short name (e.g. 'Mon', 'Sun'). Sourced from Snowflake's
+          `DAYNAME()` function — three-letter abbreviation.
+        tests:
+          - not_null
+
+      - name: quarter
+        description: Calendar quarter as an integer (1–4).
+        tests:
+          - not_null
+
+      - name: is_weekend
+        description: >
+          Boolean. TRUE for Saturday (`day_of_week_number = 6`) and Sunday
+          (`day_of_week_number = 0`). Weekend days typically see higher visit volumes
+          — use this flag for weekend vs. weekday analysis.
+        tests:
+          - not_null
+
+      - name: is_halloween
+        description: >
+          Boolean. TRUE only when the date is October 31 (any year). Used as a flag for
+          the peak Halloween event day. For the full Halloween period, use
+          `business_season = 'Halloween Season'` instead.
+        tests:
+          - not_null
+
+      - name: days_to_halloween
+        description: >
+          Integer. Signed number of days from `date_day` to October 31 of the **same
+          calendar year**:
+            - Positive: days remaining until Oct 31 (e.g. Oct 24 → 7)
+            - Zero: Oct 31 itself
+            - Negative: days elapsed since Oct 31 (e.g. Nov 7 → -7)
+
+          Used in `agg_halloween_spending` to bucket visits by proximity to Halloween.
+          Note: for dates in Nov–Dec, the reference is Oct 31 of the same year, so
+          post-Halloween values in November are small negatives.
+        tests:
+          - not_null
+
+      - name: business_season
+        description: "{{ doc('business_season_definition') }}"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Halloween Season', 'Summer', 'Winter', 'Spring', 'Fall']
+
+
+  - name: metricflow_time_spine
+    description: >
+      Minimal date spine required by the dbt MetricFlow semantic layer.
+      One row per calendar day. Grain is `date_day`.
+
+      This model exists solely to satisfy the MetricFlow `time_spine` model requirement
+      when using dbt's semantic layer / metrics definitions. It shares the same date
+      range as `dim_dates` (`var('date_spine_start')` to `var('date_spine_end')`).
+
+      Do not use this model for general analytics queries — use `dim_dates` instead,
+      which carries the full set of calendar attributes needed by this project.
+
+      Owner: analytics@themeparkanalytics.com
+    columns:
+      - name: date_day
+        description: >
+          Calendar date. Primary key. Range matches `dim_dates` (2020-01-01 to 2026-12-31
+          by default). Required by MetricFlow as the time spine anchor for all metrics.
+        tests:
+          - unique
+          - not_null

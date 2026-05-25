@@ -1,0 +1,129 @@
+version: 2
+
+snapshots:
+  - name: snp_ticket_sales_history
+    description: SCD Type 2 history of ticket sales — tracks price, discount, and payment method changes.
+    columns:
+      - name: dbt_scd_id
+        description: Surrogate key (hash of sale_id + dbt_updated_at). Unique across all historical versions.
+        tests:
+          - unique
+          - not_null
+      - name: sale_id
+        description: Business key identifying a ticket sale.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null
+
+  - name: snp_employees
+    description: SCD Type 2 history of employees — tracks any changes via updated_at timestamp.
+    columns:
+      - name: dbt_scd_id
+        tests:
+          - unique
+          - not_null
+      - name: employee_id
+        description: Business key for an employee.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null
+
+  - name: snp_rides
+    description: SCD Type 2 history of rides — tracks changes via updated_at timestamp.
+    columns:
+      - name: dbt_scd_id
+        tests:
+          - unique
+          - not_null
+      - name: ride_id
+        description: Business key for a ride.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null
+
+  - name: snp_customers
+    description: SCD Type 2 history of customers — tracks contact info, VIP status, and loyalty point changes.
+    columns:
+      - name: dbt_scd_id
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Business key for a customer.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null
+
+  - name: snp_product_pricing_history
+    description: SCD Type 2 history of ticket product pricing and attributes.
+    columns:
+      - name: dbt_scd_id
+        tests:
+          - unique
+          - not_null
+      - name: ticket_id
+        description: Business key for a ticket type.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null
+
+  - name: snp_haunted_house_attributes
+    description: SCD Type 2 history of haunted house attributes — capacity and fear level changes.
+    columns:
+      - name: dbt_scd_id
+        tests:
+          - unique
+          - not_null
+      - name: haunted_house_id
+        description: Business key for a haunted house.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null
+
+  - name: snp_visitor_feedback_changes
+    description: SCD Type 2 history of visitor feedback — tracks satisfaction rating and recommendation flag changes.
+    columns:
+      - name: dbt_scd_id
+        tests:
+          - unique
+          - not_null
+      - name: feedback_id
+        description: Business key for a feedback record.
+        tests:
+          - not_null
+      - name: dbt_valid_from
+        tests:
+          - not_null
+      - name: dbt_updated_at
+        tests:
+          - not_null

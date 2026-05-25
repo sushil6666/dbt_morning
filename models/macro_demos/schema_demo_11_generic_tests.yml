@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: demo_11_generic_tests
+    description: "Demo model showing custom generic test macros: valid_ticket_types and rating_in_range"
+    columns:
+      - name: ticket_id
+        description: "Unique ticket identifier"
+        tests:
+          - not_null
+          - unique
+
+      - name: ticket_type
+        description: "Category of ticket purchased"
+        tests:
+          - not_null
+          - valid_ticket_types:
+              arguments:
+                valid_types: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
+
+      - name: satisfaction_rating
+        description: "Customer satisfaction score 1-5"
+        tests:
+          - rating_in_range:
+              arguments:
+                min_val: 1
+                max_val: 5

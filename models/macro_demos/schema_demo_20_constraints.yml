@@ -1,0 +1,74 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_20_constraints.yml
+# ---------------------------------------------------------------------------
+# Documents demo_20_constraints and pairs every DDL constraint declared in
+# the post_hook with a matching dbt test so data quality is actually enforced.
+#
+# NOTE on meta: dbt-fusion (2.x) does not support the `meta` key at model
+# level in schema.yml. Constraint intent is documented in column descriptions
+# and in the model file's post_hook config instead.
+# ---------------------------------------------------------------------------
+
+models:
+
+  - name: demo_20_constraints
+    description: >
+      Demonstrates the apply_constraints post-hook macro.
+      Selects a clean visit fact from fct_visits and applies Snowflake DDL
+      constraints (PRIMARY KEY, UNIQUE, NOT NULL, FOREIGN KEY) via ALTER TABLE
+      after the table is materialised.
+      Constraints are Snowflake metadata-only — not enforced at write time.
+      Enforcement is handled by the dbt tests defined below.
+    config:
+      materialized: table
+      tags: ['macro_demo', 'demo_20', 'constraints']
+
+    columns:
+
+      - name: sale_id
+        description: Surrogate primary key — uniquely identifies each ticket sale record.
+        tests:
+          - not_null          # enforces the NOT NULL DDL constraint
+          - unique            # enforces the PRIMARY KEY uniqueness intent
+
+      - name: ticket_id
+        description: Source ticket identifier — one sale per ticket.
+        tests:
+          - not_null
+          - unique            # enforces the UNIQUE DDL constraint
+
+      - name: customer_id
+        description: Foreign key to dim_customers.
+        tests:
+          - not_null
+          - relationships:    # enforces the FOREIGN KEY DDL constraint
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+
+      - name: visit_date
+        description: Date of the park visit.
+        tests:
+          - not_null
+
+      - name: ticket_type
+        description: Type of ticket purchased.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
+
+      - name: ticket_price
+        description: Face value of the ticket in USD.
+
+      - name: in_park_spend
+        description: Additional spend inside the park on this visit.
+
+      - name: total_visit_spend
+        description: ticket_price + in_park_spend.
+
+      - name: avg_rating
+        description: Customer satisfaction rating (1–5).

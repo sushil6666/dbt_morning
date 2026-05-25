@@ -1,0 +1,11 @@
+sales_key,transaction_id,customer_id,visit_date,day_of_week,month_name,quarter,year,is_weekend,category,item_name,quantity,unit_price,total_amount,payment_method,location,_loaded_at
+a1b2c3d4e5f6789012345678901234ab,S2001,C001,2024-10-31,Thursday,October,4,2024,FALSE,food,Pumpkin Spice Churro,2,5.99,11.98,credit_card,Horror Quarter Snacks,2024-10-31 09:15:22
+b2c3d4e5f6789012345678901234abcd,S2002,C002,2024-10-31,Thursday,October,4,2024,FALSE,merchandise,Halloween Horror Hoodie,1,49.99,49.99,mobile,Horror Quarter Merch,2024-10-31 09:15:22
+c3d4e5f6789012345678901234abcdef,S2003,C003,2024-11-02,Saturday,November,4,2024,TRUE,game,Haunted Shooting Gallery,3,3.50,10.50,cash,Midway Games,2024-11-02 11:30:45
+d4e5f6789012345678901234abcdef01,S2004,C004,2024-11-02,Saturday,November,4,2024,TRUE,photo,Ghost Portrait Package,1,24.99,24.99,credit_card,Thunder Dragon Photo Booth,2024-11-02 11:30:45
+e5f6789012345678901234abcdef0123,S2005,C005,2024-12-24,Tuesday,December,4,2024,FALSE,food,Hot Cocoa & Gingerbread Kit,2,8.99,17.98,credit_card,Winter Wonderland Cafe,2024-12-24 14:22:10
+f6789012345678901234abcdef012345,S2006,C006,2024-12-24,Tuesday,December,4,2024,FALSE,merchandise,Park Christmas Ornament,4,12.99,51.96,kiosk,Souvenir Shop East,2024-12-24 14:22:10
+g789012345678901234abcdef01234567,S2007,C007,2025-01-11,Saturday,January,1,2025,TRUE,food,Classic Hot Dog Combo,2,9.99,19.98,cash,Splash Valley Snacks,2025-01-11 10:05:33
+h89012345678901234abcdef012345678,S2008,C008,2025-01-11,Saturday,January,1,2025,TRUE,game,Skee-Ball Credits,5,2.00,10.00,mobile,Midway Games,2025-01-11 10:05:33
+i9012345678901234abcdef0123456789,S2009,C009,2025-03-22,Saturday,March,1,2025,TRUE,merchandise,Spring Fling Tote Bag,2,19.99,39.98,credit_card,Souvenir Shop West,2025-03-22 15:45:18
+j012345678901234abcdef01234567890,S2010,C010,2025-03-22,Saturday,March,1,2025,TRUE,food,Funnel Cake Supreme,1,7.99,7.99,credit_card,Main Street Eats,2025-03-22 15:45:18

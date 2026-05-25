@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(pip show *)",
+      "Bash(edr --version)",
+      "Bash(git -C /home/insightstack/DBT-SF-code pull)",
+      "Bash(git -C /home/insightstack/DBT-SF-code push origin *)",
+      "Bash(git -C /home/insightstack/DBT-SF-code add *)",
+      "Bash(git -C /home/insightstack/DBT-SF-code commit *)",
+      "Bash(git -C /home/insightstack/DBT-SF-code config --list)"
+    ]
+  }
+}

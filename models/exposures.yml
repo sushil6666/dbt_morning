@@ -1,0 +1,138 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# Exposures — downstream consumers of dbt models
+# ---------------------------------------------------------------------------
+# Exposures extend the lineage graph beyond the warehouse to show which BI
+# dashboards, ML models, and applications depend on each mart model.
+#
+# Run models feeding a specific exposure:
+#   dbt run --select +<exposure_name>
+#
+# Test all models feeding a specific exposure:
+#   dbt test --select +<exposure_name>
+# ---------------------------------------------------------------------------
+
+exposures:
+
+  - name: theme_park_operations_dashboard
+    type: dashboard
+    maturity: high
+    url: https://company.looker.com/dashboards/theme-park-operations
+    description: >
+      Executive operations dashboard showing daily visit volumes, per-visitor spend,
+      and ride satisfaction trends. Refreshed every 6 hours. The primary daily
+      operations view used by park management.
+
+      Key metrics sourced: total visits, avg total_visit_spend, avg_rating,
+      ride popularity rankings.
+
+      SLA: data must be available by 07:00 local time for morning briefings.
+      Breach notification: analytics@themeparkanalytics.com
+    owner:
+      name: Analytics Team
+      email: analytics@themeparkanalytics.com
+    depends_on:
+      - ref('fct_visits')
+      - ref('dim_customers')
+      - ref('dim_rides')
+      - ref('agg_ride_popularity')
+      - ref('dim_dates')
+
+
+  - name: daily_revenue_report
+    type: dashboard
+    maturity: high
+    url: https://company.looker.com/dashboards/daily-revenue
+    description: >
+      Finance team's daily revenue dashboard showing ticket revenue, in-park revenue,
+      food vs. merchandise breakdown, and revenue per visitor trends.
+      Refreshed nightly. Used for daily close reporting.
+
+      SLA: data must be available by 07:00 EST. Breach requires immediate notification
+      to revenue@themeparkanalytics.com.
+    owner:
+      name: Finance Analytics
+      email: revenue@themeparkanalytics.com
+    depends_on:
+      - ref('agg_daily_revenue')
+      - ref('fct_sales')
+      - ref('dim_dates')
+
+
+  - name: customer_insights_report
+    type: dashboard
+    maturity: medium
+    url: https://company.looker.com/dashboards/customer-insights
+    description: >
+      Customer segmentation and lifetime value dashboard used by the Guest Services
+      and Growth teams. Shows CLV by loyalty tier, customer lifecycle distribution,
+      retention risk breakdown, and upsell opportunity pipeline.
+      Refreshed daily.
+    owner:
+      name: Guest Services Analytics
+      email: guest-services@themeparkanalytics.com
+    depends_on:
+      - ref('dim_customers')
+      - ref('agg_customer_lifetime_value')
+      - ref('fct_visits')
+
+
+  - name: haunted_house_analytics_dashboard
+    type: dashboard
+    maturity: medium
+    url: https://company.looker.com/dashboards/haunted-house-analytics
+    description: >
+      Seasonal haunted house performance dashboard covering visitor satisfaction,
+      fear vs. rating correlation, house happiness rankings, and VIP vs. general
+      visitor experience gap. Used by the Haunted Attractions team during the
+      Halloween season and for post-season review.
+      Refreshed daily.
+    owner:
+      name: Haunted Attractions Team
+      email: operations@themeparkanalytics.com
+    depends_on:
+      - ref('agg_happiest_houses')
+      - ref('agg_fear_vs_ratings')
+      - ref('agg_vip_satisfaction')
+      - ref('agg_visitor_recommendations')
+      - ref('agg_house_profitability_by_time')
+      - ref('agg_ticket_value')
+      - ref('fct_haunted_house_tickets')
+
+
+  - name: halloween_campaign_analysis
+    type: dashboard
+    maturity: medium
+    url: https://company.looker.com/dashboards/halloween-campaign
+    description: >
+      Marketing campaign performance dashboard for the Halloween season. Tracks ticket
+      revenue, discount usage, and spend tiers across date buckets relative to October 31.
+      Used by the Marketing team to evaluate promotional timing and pricing strategy.
+
+      Parameterised by `var('halloween_analysis_start_date')` — defaults to 2023-01-01.
+      Refreshed daily; most relevant October–November.
+    owner:
+      name: Marketing Analytics
+      email: analytics@themeparkanalytics.com
+    depends_on:
+      - ref('agg_halloween_spending')
+      - ref('fct_all_ticket_sales')
+      - ref('dim_dates')
+
+
+  - name: ride_performance_report
+    type: dashboard
+    maturity: high
+    url: https://company.looker.com/dashboards/ride-performance
+    description: >
+      Operational ride performance report showing capacity utilisation, wait times,
+      review volumes, and rating tiers across all rides and park zones. Used by the
+      Operations team for maintenance prioritisation and capacity planning.
+      Refreshed daily.
+    owner:
+      name: Operations Team
+      email: operations@themeparkanalytics.com
+    depends_on:
+      - ref('agg_ride_popularity')
+      - ref('dim_rides')

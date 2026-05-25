@@ -1,0 +1,281 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_28_31_variables_warehouse.yml
+# ---------------------------------------------------------------------------
+# Documents demos 28–31: dbt variables and Snowflake warehouse switching.
+#
+# Demo 28 — var('lookback_days', 90): rolling window over fct_visits
+# Demo 29 — var('spend_tier_high', 300) / var('spend_tier_mid', 100): threshold-driven segmentation
+# Demo 30 — switch_warehouse / reset_warehouse: per-model compute sizing
+# Demo 31 — var('dev_row_limit', none): environment-aware row capping
+#
+# Run all four:
+#   dbt build --select demo_28_var_date_window demo_29_var_spend_tiers \
+#             demo_30_warehouse_switch demo_31_var_dev_limit \
+#             --exclude "tag:elementary-tests"
+#
+# Override examples (CLI):
+#   dbt run --vars '{"lookback_days": 30}'                    --select demo_28_var_date_window
+#   dbt run --vars '{"spend_tier_high": 400, "spend_tier_mid": 150}' --select demo_29_var_spend_tiers
+#   dbt run --vars '{"heavy_model_warehouse": "COMPUTE_WH_LARGE"}'   --select demo_30_warehouse_switch
+#   dbt run --vars '{"dev_row_limit": 500}'                   --select demo_31_var_dev_limit
+# ---------------------------------------------------------------------------
+
+models:
+
+  # -------------------------------------------------------------------------
+  # demo_28_var_date_window
+  # -------------------------------------------------------------------------
+  - name: demo_28_var_date_window
+    description: >
+      Demonstrates var('lookback_days', 90) for a configurable rolling visit
+      frequency summary over fct_visits.
+
+      The window_days column is stamped on every row so BI tools can show the
+      active window in chart labels without inspecting run logs.
+
+      Production default: 90 days (dbt_project.yml lookback_days).
+      Override: dbt run --vars '{"lookback_days": 30}' --select demo_28_var_date_window
+    config:
+      materialized: table
+      tags: ['macro_demo', 'demo_28', 'variables']
+    columns:
+      - name: customer_id
+        description: Customer identifier. FK to dim_customers.
+        tests:
+          - not_null
+          - unique
+      - name: visit_count
+        description: Number of visits within the lookback window.
+        tests:
+          - not_null
+      - name: total_spend
+        description: Sum of total_visit_spend within the window.
+        tests:
+          - not_null
+      - name: avg_spend_per_visit
+        description: Mean spend per visit within the window, rounded to 2dp.
+      - name: avg_rating
+        description: Mean satisfaction rating within the window. NULL when no ratings exist.
+      - name: first_visit_in_window
+        description: Earliest visit_date within the active lookback window.
+        tests:
+          - not_null
+      - name: last_visit_in_window
+        description: Most recent visit_date within the active lookback window.
+        tests:
+          - not_null
+      - name: window_days
+        description: >
+          The lookback_days var value active when the model was built.
+          Stamped on every row for lineage transparency.
+        tests:
+          - not_null
+
+
+  # -------------------------------------------------------------------------
+  # demo_29_var_spend_tiers
+  # -------------------------------------------------------------------------
+  - name: demo_29_var_spend_tiers
+    description: >
+      Demonstrates var-driven business threshold variables for spend segmentation.
+
+      spend_tier is computed from total_visit_spend against two var thresholds:
+        High = >= spend_tier_high (default $300)
+        Mid  = >= spend_tier_mid  (default $100)
+        Low  = below spend_tier_mid
+
+      tier_high_threshold and tier_mid_threshold are written to every row so BI
+      tools can build dynamic labels ("High (>=$300)") without hardcoding values.
+
+      Override: dbt run --vars '{"spend_tier_high": 400, "spend_tier_mid": 150}' \
+                        --select demo_29_var_spend_tiers
+    config:
+      materialized: view
+      tags: ['macro_demo', 'demo_29', 'variables']
+    columns:
+      - name: customer_id
+        description: Customer identifier. FK to dim_customers.
+        tests:
+          - not_null
+      - name: visit_date
+        description: Date of the park visit.
+        tests:
+          - not_null
+      - name: ticket_type
+        description: Ticket product used for this visit.
+      - name: total_visit_spend
+        description: Total spend (ticket + in-park) for the visit. Never NULL in this model (filtered).
+        tests:
+          - not_null
+      - name: avg_rating
+        description: Satisfaction rating for the visit. Nullable.
+      - name: spend_tier
+        description: High / Mid / Low bucket based on total_visit_spend vs the active thresholds.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['High', 'Mid', 'Low']
+      - name: tier_high_threshold
+        description: Active value of var('spend_tier_high') when the model ran.
+        tests:
+          - not_null
+      - name: tier_mid_threshold
+        description: Active value of var('spend_tier_mid') when the model ran.
+        tests:
+          - not_null
+
+
+  # -------------------------------------------------------------------------
+  # demo_30_warehouse_switch
+  # -------------------------------------------------------------------------
+  - name: demo_30_warehouse_switch
+    description: >
+      Demonstrates per-model warehouse sizing via the switch_warehouse /
+      reset_warehouse macro pair.
+
+      pre_hook  → USE WAREHOUSE var('heavy_model_warehouse', 'COMPUTE_WH')
+      post_hook → USE WAREHOUSE <profile default> (target.warehouse)
+
+      The model runs three concurrent window functions over fct_visits
+      (running cumulative spend, dense_rank by ticket type, partition average)
+      to simulate the compute load that warrants a larger warehouse.
+
+      spend_vs_ticket_avg exposes the delta between a visit's spend and the
+      mean for its ticket type — useful for outlier detection.
+
+      Override warehouse: dbt run --vars '{"heavy_model_warehouse": "COMPUTE_WH_LARGE"}' \
+                                  --select demo_30_warehouse_switch
+    config:
+      materialized: table
+      tags: ['macro_demo', 'demo_30', 'warehouse']
+    columns:
+      - name: customer_id
+        description: Customer identifier.
+        tests:
+          - not_null
+      - name: ticket_type
+        description: Ticket product for this visit.
+        tests:
+          - not_null
+      - name: visit_date
+        description: Date of the park visit.
+        tests:
+          - not_null
+      - name: total_visit_spend
+        description: Total visit spend. Never NULL (filtered in source CTE).
+        tests:
+          - not_null
+      - name: avg_rating
+        description: Satisfaction rating. Nullable.
+      - name: running_total_spend
+        description: >
+          Cumulative total_visit_spend for the customer, ordered by visit_date
+          from earliest to current row (unbounded preceding → current row).
+        tests:
+          - not_null
+      - name: spend_rank_in_ticket_type
+        description: >
+          dense_rank() of this visit's total_visit_spend within its ticket_type
+          partition. Rank 1 = highest spender in that ticket category.
+        tests:
+          - not_null
+      - name: avg_spend_for_ticket_type
+        description: >
+          Partition average of total_visit_spend across all visits with the same
+          ticket_type. Rounded to 2 decimal places.
+        tests:
+          - not_null
+      - name: spend_vs_ticket_avg
+        description: >
+          total_visit_spend minus avg_spend_for_ticket_type.
+          Positive = above average for this ticket type.
+          Negative = below average. Useful for outlier detection.
+        tests:
+          - not_null
+
+
+  # -------------------------------------------------------------------------
+  # demo_31_var_dev_limit
+  # -------------------------------------------------------------------------
+  - name: demo_31_var_dev_limit
+    description: >
+      Demonstrates environment-aware row capping via var('dev_row_limit', none).
+
+      When dev_row_limit is set, the model appends LIMIT <n> to the query,
+      giving engineers fast local previews without a separate dev seed.
+
+      When dev_row_limit is none (the default), no LIMIT is appended and the
+      full dataset is returned — safe for prod.
+
+      Convention: never set dev_row_limit in dbt_project.yml.
+      Set it only in developer profiles.yml or CI job step env vars.
+
+      Run with cap:
+        dbt run --vars '{"dev_row_limit": 500}' --select demo_31_var_dev_limit
+      Run without cap (prod behaviour):
+        dbt run --select demo_31_var_dev_limit
+    config:
+      materialized: view
+      tags: ['macro_demo', 'demo_31', 'variables']
+    columns:
+      - name: customer_id
+        description: Customer identifier. FK to dim_customers.
+        tests:
+          - not_null
+      - name: loyalty_tier
+        description: Gold / Silver / Bronze tier from dim_customers.
+        tests:
+          - not_null
+      - name: customer_value_segment
+        description: High Value / Mid Value / Standard from dim_customers.
+        tests:
+          - not_null
+      - name: age_group
+        description: Demographic cohort from dim_customers.
+        tests:
+          - not_null
+      - name: visit_date
+        description: Date of the park visit.
+        tests:
+          - not_null
+      - name: ticket_type
+        description: Ticket product used for the visit.
+      - name: total_visit_spend
+        description: Total spend (ticket + in-park) for the visit.
+      - name: avg_rating
+        description: Satisfaction rating. Nullable.
+
+
+# ---------------------------------------------------------------------------
+# Unit Tests
+# ---------------------------------------------------------------------------
+
+unit_tests:
+
+  # ── Test: spend_tier CASE boundaries ─────────────────────────────────────
+  - name: test_spend_tier_boundaries
+    model: demo_29_var_spend_tiers
+    description: >
+      Verifies spend_tier CASE thresholds using default var values
+      (spend_tier_high=300, spend_tier_mid=100).
+      Tests exact boundary values and clear High/Low extremes.
+    given:
+      - input: ref('fct_visits')
+        rows:
+          - {customer_id: 'C1', visit_date: '2024-01-01', ticket_type: 'day_pass',  total_visit_spend: 350.00, avg_rating: 4.5}
+          - {customer_id: 'C2', visit_date: '2024-01-01', ticket_type: 'day_pass',  total_visit_spend: 300.00, avg_rating: 4.0}
+          - {customer_id: 'C3', visit_date: '2024-01-01', ticket_type: 'day_pass',  total_visit_spend: 299.99, avg_rating: 3.5}
+          - {customer_id: 'C4', visit_date: '2024-01-01', ticket_type: 'day_pass',  total_visit_spend: 100.00, avg_rating: 3.0}
+          - {customer_id: 'C5', visit_date: '2024-01-01', ticket_type: 'day_pass',  total_visit_spend:  99.99, avg_rating: 2.5}
+          - {customer_id: 'C6', visit_date: '2024-01-01', ticket_type: 'day_pass',  total_visit_spend:  10.00, avg_rating: 2.0}
+    expect:
+      rows:
+        - {customer_id: 'C1', spend_tier: 'High'}
+        - {customer_id: 'C2', spend_tier: 'High'}
+        - {customer_id: 'C3', spend_tier: 'Mid'}
+        - {customer_id: 'C4', spend_tier: 'Mid'}
+        - {customer_id: 'C5', spend_tier: 'Low'}
+        - {customer_id: 'C6', spend_tier: 'Low'}

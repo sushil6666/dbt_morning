@@ -1,87 +1,117 @@
 version: 2
 
-semantic_models:
-  - name: sales
-    description: Semantic model for ticket and in-park sales transactions.
-    model: ref('fct_sales')
-    defaults:
-      agg_time_dimension: visit_date
-    entities:
-      - name: sales
-        type: primary
-        expr: transaction_id
-      - name: customer
-        type: foreign
-        expr: customer_id
-    dimensions:
-      - name: visit_date
-        type: time
-        type_params:
-          time_granularity: day
-      - name: category
-        type: categorical
-      - name: payment_method
-        type: categorical
-      - name: location
-        type: categorical
-      - name: is_weekend
-        type: categorical
-    measures:
-      - name: sales_amount
-        agg: sum
-        expr: total_amount
-      - name: items_sold
-        agg: sum
-        expr: quantity
-      - name: sales_transactions
-        agg: count_distinct
-        expr: transaction_id
-
-  - name: customers
-    description: Customer attributes used for segmentation and filtering in metrics.
-    model: ref('dim_customers')
-    entities:
-      - name: customer
-        type: primary
-        expr: customer_id
-    dimensions:
-      - name: loyalty_tier
-        type: categorical
-      - name: customer_value_segment
-        type: categorical
-      - name: is_vip_member
-        type: categorical
-      - name: retention_risk_level
-        type: categorical
-
-metrics:
-  - name: total_sales
-    description: Total sales amount across all transactions.
-    type: simple
-    label: Total Sales
-    type_params:
-      measure: sales_amount
-
-  - name: total_items_sold
-    description: Total quantity of items sold.
-    type: simple
-    label: Total Items Sold
-    type_params:
-      measure: items_sold
-
-  - name: total_transactions
-    description: Distinct count of sales transactions.
-    type: simple
-    label: Total Transactions
-    type_params:
-      measure: sales_transactions
-
-  - name: average_order_value
-    description: Average dollars per transaction.
-    type: derived
-    label: Average Order Value
-    type_params:
-      expr: total_sales / nullif(total_transactions, 0)
-      metrics:
-        - name: total_sales
-        - name: total_transactions
+# ═════════════════════════════════════════════════════════════════════════════
+# SEMANTIC MODELS — Theme Park Platform
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# ── THE PROBLEM THIS FILE SOLVES ─────────────────────────────────────────────
+#
+# Before the semantic layer, every business question required a dedicated SQL
+# model written, reviewed, merged, and deployed by an engineer:
+#
+#   Business: "Show me ticket revenue by loyalty tier."
+#   Engineer: writes agg_revenue_by_loyalty.sql → PR → review → CI → deploy
+#
+#   Business: "Same chart but for weekends only."
+#   Engineer: writes agg_revenue_by_loyalty_weekend.sql → another full cycle
+#
+#   Business: "Now compare VIP vs non-VIP for each loyalty tier."
+#   Engineer: writes a third model...
+#
+# With 6 core metrics and 12+ slicing dimensions, covering every combination
+# would require 70+ SQL models. The analytics project already has 11 agg_*
+# models and they still don't cover the most common analyst requests.
+#
+# This creates three cascading failures:
+#
+#   1. BOTTLENECK — Analysts wait days for engineers to write trivial SQL.
+#      The data team spends 60%+ of sprint capacity on "one-off" aggregations
+#      that differ from each other only by a GROUP BY clause.
+#
+#   2. METRIC DRIFT — "Total revenue" has three different definitions across
+#      the analytics project:
+#        agg_daily_revenue         → ticket_revenue + in_park_revenue
+#        agg_halloween_spending    → sum(ticket_price) from fct_all_ticket_sales
+#        agg_customer_lifetime_value → sum(total_visit_spend) from fct_visits
+#      Finance and Marketing routinely produce different "total revenue" numbers
+#      from dashboards that ostensibly answer the same question. This is a trust
+#      problem that erodes confidence in the entire data platform.
+#
+#   3. NO IMPACT ANALYSIS — When a mart model changes, there is no automated
+#      way to know which dashboards break. Engineers find out from Slack alerts
+#      after a BI chart shows zeros or NULL.
+#
+# ── WHAT THE SEMANTIC LAYER DOES ─────────────────────────────────────────────
+#
+# This file defines the semantic layer using MetricFlow — dbt's built-in
+# metric engine (included in dbt-core 1.6+, no extra package needed).
+#
+# A semantic model is a structured description of ONE physical table that tells
+# MetricFlow:
+#   entities    → what are the join keys (how tables relate)
+#   dimensions  → what can we GROUP BY (time dimensions, categories)
+#   measures    → what can we SUM / COUNT / AVERAGE
+#
+# MetricFlow reads these definitions and generates optimised SQL at query time.
+# The same measure can be sliced by any compatible dimension — no new SQL model
+# required:
+#
+#   mf query --metrics ticket_revenue --group-by sm_customers__loyalty_tier
+#   mf query --metrics ticket_revenue --group-by sm_visits__is_weekend
+#   mf query --metrics ticket_revenue --group-by sm_ticket_types__house_category
+#
+# One measure definition → infinite slicing → zero new SQL models.
+#
+# ── HOW ENTITY JOINS WORK ────────────────────────────────────────────────────
+#
+# Entities are the glue between semantic models. When a fact model declares a
+# foreign entity with the same name as a dimension model's primary entity,
+# MetricFlow automatically knows how to join them.
+#
+# Join graph for this project:
+#
+#   sm_visits ────────── customer FK ───────► sm_customers (PK: customer_id)
+#   sm_visits ────────── ticket_type FK ────► sm_ticket_types (PK: ticket_id)
+#   sm_ticket_sales ──── customer FK ───────► sm_customers (PK: customer_id)
+#   sm_ticket_sales ──── ticket_type FK ────► sm_ticket_types (PK: ticket_id)
+#   sm_pos_sales ─────── customer FK ───────► sm_customers (PK: customer_id)
+#   sm_haunted_tickets ─ customer FK ───────► sm_customers (PK: customer_id)
+#
+# This means: any metric from sm_visits, sm_ticket_sales, sm_pos_sales, or
+# sm_haunted_tickets can be sliced by ANY dimension from sm_customers or
+# sm_ticket_types — including dimensions that don't physically exist in the
+# fact table — without writing a JOIN.
+#
+# ── WHAT STAYS IN agg_* MODELS ───────────────────────────────────────────────
+#
+# The analytics project's agg_* models still exist and are still valid for:
+#
+#   1. Complex transformations: CLV scoring, Halloween proximity bucketing,
+#      and ride popularity rankings involve non-trivial window functions or
+#      multi-step logic that MetricFlow cannot express as a simple measure.
+#
+#   2. SLA-critical dashboards: Pre-aggregated tables respond in milliseconds.
+#      For dashboards with sub-second SLA (morning briefings, executive screens),
+#      a pre-computed table is faster than a MetricFlow query against raw facts.
+#
+# Rule of thumb:
+#   Standard metric × dimension → use the semantic layer (this file)
+#   Complex scoring / ranking   → use an agg_* model in the analytics project
+#
+# ── HOW TO USE ───────────────────────────────────────────────────────────────
+#
+# CLI:
+#   mf query --metrics <metric> --group-by <sm_name__dimension>
+#   mf validate-configs
+#   mf list metrics
+#   mf list dimensions --metrics ticket_revenue
+#
+# dbt Cloud Semantic Layer API:
+#   POST /api/v1/sl/graphql
+#   { query MetricQuery { metrics(... ) { ... } } }
+#
+# BI tools (Tableau, Hex, Mode, Looker Studio):
+#   Connect via the dbt Semantic Layer native connector.
+#   Metrics and dimensions from this file appear as a curated field list.
+#
+# ═════════════════════════════════════════════════════════════════════════════

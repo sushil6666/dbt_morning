@@ -1,0 +1,273 @@
+# Name your project! Project names should contain only lowercase characters
+# and underscores. A good package is named after the intended use case.
+name: 'dbt_practice'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'dbt_batch'
+
+# These configurations specify where dbt should look for different types of files.
+model-paths:    ["models"]
+analysis-paths: ["analyses"]
+test-paths:     ["tests"]
+seed-paths:     ["seeds"]
+macro-paths:    ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# dbt-cloud:
+  # Opt in to dbt Cloud deferral only when a real environment ID is provided.
+  # This avoids Fusion implicitly probing Cloud for a missing default deferral environment.
+  #defer-env-id: "{{ env_var('DBT_CLOUD_DEFER_ENV_ID', '') }}"
+
+# Runs once at the very start of the entire dbt run (before any model builds)
+on-run-start:
+  - "ALTER SESSION SET QUERY_TAG = 'dbt_run_{{ invocation_id }}'"
+  - "CREATE SCHEMA IF NOT EXISTS {{ target.database }}.INTERMEDIATE"
+  - "{{ elementary.on_run_start() }}"
+
+# Runs once at the very end of the entire dbt run (after all models finish)
+on-run-end:
+  - "{{ elementary.on_run_end() }}"
+  - "{{ dbt_observability.upload_results(results) }}"
+  - "ALTER SESSION SET QUERY_TAG = ''"
+
+vars:
+  # Track observability for all three target environments
+  "dbt_observability:environments": ["dev", "uat", "prod"]
+
+  date_spine_start: '2020-01-01'
+  date_spine_end:   '2026-12-31'
+
+  # Filter for halloween spending analysis — override via CLI for narrower dev runs
+  # e.g. dbt run --select agg_halloween_spending --vars '{"halloween_analysis_start_date": "2024-01-01"}'
+  halloween_analysis_start_date: '2023-01-01'
+
+  # Minimum satisfaction rating included in house happiness rankings
+  # e.g. dbt run --select agg_happiest_houses --vars '{"min_satisfaction_rating": 4}'
+  min_satisfaction_rating: 3
+
+  # Snowflake role granted SELECT on all mart tables after each build
+  # Override per environment in CI/CD job config
+  bi_role: 'SYSADMIN'
+
+  # Rolling lookback window for visit frequency analysis (demo_28_var_date_window)
+  # Override: dbt run --vars '{"lookback_days": 30}' --select demo_28_var_date_window
+  lookback_days: 90
+
+  # Spend segmentation thresholds for demo_29_var_spend_tiers
+  # Finance team adjusts these quarterly via CLI override or CI/CD job vars
+  spend_tier_high: 300
+  spend_tier_mid:  100
+
+  # Warehouse used by compute-heavy models (demo_30_warehouse_switch)
+  # dev/CI default: COMPUTE_WH   |   prod override: COMPUTE_WH_LARGE
+  heavy_model_warehouse: 'DBT_WH'
+
+seeds:
+  dbt_project_evaluator:
+    +enabled: false
+
+  dbt_practice:
+    +schema: raw
+    +quote_columns: false
+    raw_customers:
+      +column_types:
+        customer_id: varchar
+        membership_type: varchar
+        signup_channel: varchar
+    raw_rides:
+      +column_types:
+        ride_id: varchar
+        ride_type: varchar
+        thrill_level: varchar
+        zone: varchar
+        status: varchar
+    raw_tickets:
+      +column_types:
+        ticket_id: varchar
+        customer_id: varchar
+        ticket_type: varchar
+        purchase_channel: varchar
+        promo_code: varchar
+    raw_feedback:
+      +column_types:
+        feedback_id: varchar
+        customer_id: varchar
+        ride_id: varchar
+        category: varchar
+        sentiment: varchar
+    raw_sales_transactions:
+      +column_types:
+        transaction_id: varchar
+        customer_id: varchar
+        category: varchar
+        item_name: varchar
+        payment_method: varchar
+        location: varchar
+    raw_employees:
+      +column_types:
+        employee_id: varchar
+        manager_id: varchar
+        department: varchar
+        role: varchar
+        zone_assignment: varchar
+    raw_haunted_events:
+      +column_types:
+        event_id: varchar
+        event_name: varchar
+        event_type: varchar
+        external_partner: varchar
+        description: varchar
+    macro_demos:
+      +schema: macro_demos_sample
+      +quote_columns: false
+      demo_21_sample_merge:
+        +column_types:
+          sale_id: varchar
+          customer_id: varchar
+          ticket_id: varchar
+          purchase_date: date
+          visit_date: date
+          ticket_price: number(10,2)
+          discount_percent: number(5,2)
+          discount_category: varchar
+          visit_hour: integer
+          payment_method: varchar
+          purchase_channel: varchar
+          is_online: boolean
+          same_day_visit: boolean
+          advance_purchase: boolean
+          visit_time_category: varchar
+          business_season: varchar
+          created_at: timestamp_ntz
+          updated_at: timestamp_ntz
+      demo_22_sample_append:
+        +column_types:
+          sales_key: varchar
+          transaction_id: varchar
+          customer_id: varchar
+          visit_date: date
+          day_of_week: varchar
+          month_name: varchar
+          quarter: integer
+          year: integer
+          is_weekend: boolean
+          category: varchar
+          item_name: varchar
+          quantity: integer
+          unit_price: number(10,2)
+          total_amount: number(10,2)
+          payment_method: varchar
+          location: varchar
+          _loaded_at: timestamp_ntz
+      demo_23_sample_delete_insert:
+        +column_types:
+          visit_date: date
+          ticket_type: varchar
+          unique_visitors: integer
+          total_visits: integer
+          total_ticket_revenue: number(12,2)
+          total_in_park_spend: number(12,2)
+          total_visit_spend: number(12,2)
+          avg_satisfaction_rating: number(4,2)
+          min_ticket_price: number(10,2)
+          max_ticket_price: number(10,2)
+      demo_24_sample_insert_overwrite:
+        +column_types:
+          revenue_month: date
+          category: varchar
+          location: varchar
+          payment_method: varchar
+          total_revenue: number(14,2)
+          total_units_sold: integer
+          total_transactions: integer
+          unique_customers: integer
+          avg_transaction_value: number(10,2)
+          max_transaction_value: number(10,2)
+      demo_25_sample_microbatch:
+        +column_types:
+          sale_id: varchar
+          customer_id: varchar
+          ticket_id: varchar
+          purchase_date: date
+          purchase_ts: timestamp_ntz
+          visit_date: date
+          ticket_price: number(10,2)
+          discount_percent: number(5,2)
+          discount_category: varchar
+          payment_method: varchar
+          purchase_channel: varchar
+          is_online: boolean
+          same_day_visit: boolean
+          advance_purchase: boolean
+          visit_time_category: varchar
+          business_season: varchar
+          updated_at: timestamp_ntz
+
+snapshots:
+  dbt_practice:
+    +target_schema: snapshots
+
+models:
+  dbt_practice:
+
+    +query_tag: 'query_from_dbt'
+
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ['staging']
+
+      customer_data:
+        +tags: ['customer_data']
+      park_assets:
+        +tags: ['park_assets']
+      sales:
+        +tags: ['sales']
+      external_haunted:
+        +tags: ['external_haunted']
+      feedback:
+        +tags: ['feedback']
+
+    intermediate:
+      +materialized: ephemeral
+      +schema: intermediate
+      +tags: ['intermediate']
+
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ['marts']
+
+      core:
+        +tags: ['core']
+      analytics:
+        +tags: ['analytics']
+
+    utilities:
+      +materialized: table
+      +schema: utilities
+      +tags: ['utilities']
+
+    macro_demos:
+      +enabled: true
+      +materialized: view
+      +schema: macro_demos
+      +tags: ['macro_demo']
+
+  # Pin Elementary models to the elementary schema so hooks write there too.
+  # Without this dbt-fusion defaults to the target schema (DBT_BATCH_DEV).
+  elementary:
+    +schema: elementary
+
+  # dbt_project_evaluator internal models incompatible with dbt-fusion (trailing comma SQL)
+  dbt_project_evaluator:
+    +enabled: false
+
+  dbt_observability:
+    +schema: dbt_observability

@@ -1,0 +1,87 @@
+version: 2
+
+semantic_models:
+  - name: sales
+    description: Semantic model for ticket and in-park sales transactions.
+    model: ref('fct_sales')
+    defaults:
+      agg_time_dimension: visit_date
+    entities:
+      - name: sales
+        type: primary
+        expr: transaction_id
+      - name: customer
+        type: foreign
+        expr: customer_id
+    dimensions:
+      - name: visit_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: category
+        type: categorical
+      - name: payment_method
+        type: categorical
+      - name: location
+        type: categorical
+      - name: is_weekend
+        type: categorical
+    measures:
+      - name: sales_amount
+        agg: sum
+        expr: total_amount
+      - name: items_sold
+        agg: sum
+        expr: quantity
+      - name: sales_transactions
+        agg: count_distinct
+        expr: transaction_id
+
+  - name: customers
+    description: Customer attributes used for segmentation and filtering in metrics.
+    model: ref('dim_customers')
+    entities:
+      - name: customer
+        type: primary
+        expr: customer_id
+    dimensions:
+      - name: loyalty_tier
+        type: categorical
+      - name: customer_value_segment
+        type: categorical
+      - name: is_vip_member
+        type: categorical
+      - name: retention_risk_level
+        type: categorical
+
+metrics:
+  - name: total_sales
+    description: Total sales amount across all transactions.
+    type: simple
+    label: Total Sales
+    type_params:
+      measure: sales_amount
+
+  - name: total_items_sold
+    description: Total quantity of items sold.
+    type: simple
+    label: Total Items Sold
+    type_params:
+      measure: items_sold
+
+  - name: total_transactions
+    description: Distinct count of sales transactions.
+    type: simple
+    label: Total Transactions
+    type_params:
+      measure: sales_transactions
+
+  - name: average_order_value
+    description: Average dollars per transaction.
+    type: derived
+    label: Average Order Value
+    type_params:
+      expr: total_sales / nullif(total_transactions, 0)
+      metrics:
+        - name: total_sales
+        - name: total_transactions

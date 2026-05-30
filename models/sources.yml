@@ -205,8 +205,8 @@ sources:
         #   data_classification: internal
         #   steward: revenue
         #   primary_key: ticket_id
-        # loaded_at_field: purchase_date
-        # freshness:
+        # loaded_at_field: purchase_date      # not yet supported in dbt-fusion
+        # freshness:                           # not yet supported in dbt-fusion
         #   warn_after: {count: 1, period: day}
         #   error_after: {count: 3, period: day}
         columns:

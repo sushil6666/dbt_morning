@@ -24,16 +24,16 @@ clean-targets:
   # This avoids Fusion implicitly probing Cloud for a missing default deferral environment.
   #defer-env-id: "{{ env_var('DBT_CLOUD_DEFER_ENV_ID', '') }}"
 
-# Runs once at the very start of the entire dbt run (before any model builds)
 on-run-start:
   - "ALTER SESSION SET QUERY_TAG = 'dbt_run_{{ invocation_id }}'"
   - "CREATE SCHEMA IF NOT EXISTS {{ target.database }}.INTERMEDIATE"
-  - "{{ elementary.on_run_start() }}"
+  - "{{ safe_elementary_on_run_start() }}"
 
 # Runs once at the very end of the entire dbt run (after all models finish)
 on-run-end:
-  - "{{ elementary.on_run_end() }}"
+  - "{{ safe_elementary_on_run_end() }}"
   - "ALTER SESSION SET QUERY_TAG = ''"
+
 
 vars:
   date_spine_start: '2020-01-01'
@@ -63,6 +63,25 @@ vars:
   # Warehouse used by compute-heavy models (demo_30_warehouse_switch)
   # dev/CI default: COMPUTE_WH   |   prod override: COMPUTE_WH_LARGE
   heavy_model_warehouse: 'DBT_WH'
+
+  # Demo toggles for governance demos in models/macro_demos
+  # demo_35_schema_drift_append_new_columns: set to 'add_new_column' to append a new
+  # top-level column on the next incremental run without dropping legacy columns.
+  demo_35_schema_drift_mode: 'baseline'
+
+  # demo_36_schema_drift_sync_all_columns: set to 'add_new_column' to add a column,
+  # then 'drop_legacy_column' on a later run to show sync_all_columns removing it.
+  demo_36_schema_drift_mode: 'baseline'
+
+  # Demo toggle for contracted incremental schema evolution.
+  # baseline = original contract, add_new_column = expose a new top-level column
+  # and rely on append_new_columns to extend the target safely.
+  demo_37_contract_incremental_mode: 'baseline'
+  # Elementary package guard: source freshness demo runs should not try to
+  # autoupload freshness results in this project, because the package hook
+  # expects result fields that are undefined in this Fusion preview flow.
+  disable_freshness_results: true
+
 
 seeds:
   dbt_project_evaluator:

@@ -1,0 +1,281 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_34_37_governance.yml
+# ---------------------------------------------------------------------------
+# Governance demos for contracts, schema drift, and source freshness.
+#
+# Demo 34 — enforced contract on a published table
+# Demo 35 — additive schema drift with on_schema_change: append_new_columns
+# Demo 36 — full schema sync with on_schema_change: sync_all_columns
+# Demo 37 — enforced contract on an incremental model
+#
+# Freshness demos:
+#   freshness_demo_raw.customers_lenient_sla
+#   freshness_demo_raw.feedback_recent_window
+#   freshness_demo_raw.employees_disabled_freshness
+#   freshness_demo_microbatch.tickets_microbatch_strict_sla
+#
+# Run the freshness examples with:
+#   dbt source freshness --select source:freshness_demo_raw source:freshness_demo_microbatch
+# ---------------------------------------------------------------------------
+
+models:
+  - name: demo_34_contract_enforced_table
+    description: >
+      Demonstrates an enforced contract on a published table model.
+      dbt validates that the SQL output exactly matches the YAML-defined column
+      names and data types before materialising the table.
+    config:
+      materialized: table
+      contract:
+        enforced: true
+      tags: ['macro_demo', 'demo_34', 'contract']
+    columns:
+      - name: visit_key
+        description: Surrogate visit identifier from fct_visits.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer foreign key.
+        data_type: varchar
+        data_tests:
+          - not_null
+      - name: visit_date
+        description: Visit date for the ticketed park entry.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: ticket_type
+        description: Ticket product used for the visit.
+        data_type: varchar
+        data_tests:
+          - not_null
+      - name: total_visit_spend
+        description: Total ticket plus in-park spend for the visit.
+        data_type: number(12,2)
+      - name: avg_rating
+        description: Average satisfaction rating captured for the visit.
+        data_type: number(4,2)
+
+  - name: demo_35_schema_drift_append_new_columns
+    description: >
+      Demonstrates additive schema drift handling for an incremental merge model.
+      With on_schema_change set to append_new_columns, new top-level columns are
+      added to the existing table without removing previously published columns.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_35', 'schema_drift', 'append_new_columns']
+    columns:
+      - name: sale_id
+        description: Merge key for the incremental model.
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer identifier.
+        data_tests:
+          - not_null
+      - name: ticket_id
+        description: Source ticket identifier.
+        data_tests:
+          - not_null
+      - name: purchase_date
+        description: Ticket purchase date.
+        data_tests:
+          - not_null
+      - name: visit_date
+        description: Planned park visit date.
+        data_tests:
+          - not_null
+      - name: ticket_price
+        description: Ticket price after discounts.
+      - name: discount_percent
+        description: Discount percentage applied to the ticket.
+      - name: discount_category
+        description: Legacy discount bucket preserved for backwards compatibility.
+      - name: updated_at
+        description: Watermark column used for incremental filtering.
+        data_tests:
+          - not_null
+      - name: is_deep_discount
+        description: >
+          Optional additive column exposed when demo_35_schema_drift_mode is set
+          to add_new_column. Historical rows are not backfilled automatically.
+
+  - name: demo_36_schema_drift_sync_all_columns
+    description: >
+      Demonstrates full schema synchronisation for an incremental merge model.
+      With on_schema_change set to sync_all_columns, dbt adds newly selected
+      columns and removes columns that disappear from the SQL definition.
+    config:
+      materialized: incremental
+      tags: ['macro_demo', 'demo_36', 'schema_drift', 'sync_all_columns']
+    columns:
+      - name: sale_id
+        description: Merge key for the incremental model.
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer identifier.
+        data_tests:
+          - not_null
+      - name: ticket_id
+        description: Source ticket identifier.
+        data_tests:
+          - not_null
+      - name: purchase_date
+        description: Ticket purchase date.
+        data_tests:
+          - not_null
+      - name: visit_date
+        description: Planned park visit date.
+        data_tests:
+          - not_null
+      - name: ticket_price
+        description: Ticket price after discounts.
+      - name: discount_percent
+        description: Discount percentage applied to the ticket.
+      - name: discount_category
+        description: >
+          Legacy column present in baseline mode and intentionally removed when
+          demo_36_schema_drift_mode is set to drop_legacy_column.
+      - name: updated_at
+        description: Watermark column used for incremental filtering.
+        data_tests:
+          - not_null
+      - name: is_deep_discount
+        description: >
+          Optional additive column exposed when demo_36_schema_drift_mode is set
+          to add_new_column.
+
+  - name: demo_37_contract_incremental_append
+    description: >
+      Demonstrates an enforced contract on an incremental merge model.
+      This is the safe published-model pattern: keep the interface governed with
+      a contract and allow additive evolution with append_new_columns.
+    config:
+      materialized: incremental
+      contract:
+        enforced: true
+      tags: ['macro_demo', 'demo_37', 'contract', 'incremental']
+    columns:
+      - name: sale_id
+        description: Merge key for the contracted incremental model.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer identifier.
+        data_type: varchar
+        data_tests:
+          - not_null
+      - name: ticket_id
+        description: Ticket identifier.
+        data_type: varchar
+        data_tests:
+          - not_null
+      - name: purchase_date
+        description: Ticket purchase date.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: visit_date
+        description: Planned park visit date.
+        data_type: date
+        data_tests:
+          - not_null
+      - name: ticket_price
+        description: Ticket price after discounts.
+        data_type: number(10,2)
+      - name: discount_percent
+        description: Discount percentage applied to the ticket.
+        data_type: number(5,2)
+      - name: updated_at
+        description: Watermark column used for incremental filtering.
+        data_type: timestamp_ntz
+        data_tests:
+          - not_null
+      - name: is_deep_discount
+        description: >
+          Contracted boolean column that is always present in the model output.
+          It is populated when demo_37_contract_incremental_mode is set to
+          add_new_column and null in baseline mode.
+        data_type: boolean
+
+sources:
+  - name: freshness_demo_raw
+    description: >
+      Demo-only sources in the raw schema showing three common freshness
+      patterns: lenient SLA, filtered freshness, and explicitly disabled
+      freshness for tables without a reliable load timestamp.
+    database: "{{ target.database }}"
+    schema: raw
+    loader: dbt_seed
+    tables:
+      - name: customers_lenient_sla
+        identifier: raw_customers
+        description: >
+          Lenient freshness SLA for a customer master table that updates less
+          frequently than transactional feeds.
+        config:
+          loaded_at_field: created_at
+          freshness:
+            warn_after: {count: 7, period: day}
+            error_after: {count: 30, period: day}
+        columns:
+          - name: customer_id
+            description: Customer identifier.
+
+      - name: feedback_recent_window
+        identifier: raw_feedback
+        description: >
+          Freshness measured over a filtered recent window so the SLA reflects
+          current pipeline latency rather than old historical rows.
+        config:
+          loaded_at_field: submitted_at
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 24, period: hour}
+            filter: "submitted_at >= dateadd('day', -14, current_timestamp())"
+        columns:
+          - name: feedback_id
+            description: Feedback identifier.
+
+      - name: employees_disabled_freshness
+        identifier: raw_employees
+        description: >
+          Explicitly disabled freshness for a source without a reliable load
+          timestamp. This is the correct pattern when a freshness SLA would be
+          misleading or technically invalid.
+        config:
+          freshness: null
+        columns:
+          - name: employee_id
+            description: Employee identifier.
+
+  - name: freshness_demo_microbatch
+    description: >
+      Demo-only source in the macro_demos_sample schema showing a strict
+      freshness SLA on an event-style feed with a timestamp load column.
+    database: "{{ target.database }}"
+    schema: macro_demos_sample
+    loader: dbt_seed
+    tables:
+      - name: tickets_microbatch_strict_sla
+        identifier: demo_25_sample_microbatch
+        description: >
+          Strict freshness SLA on an event-style feed with a true timestamp load
+          column. Uses purchase_ts so freshness can be measured at sub-day grain.
+        config:
+          loaded_at_field: purchase_ts
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 24, period: hour}
+        columns:
+          - name: sale_id
+            description: Ticket sale identifier.

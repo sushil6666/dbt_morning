@@ -1,4 +1,4 @@
-{{ config(materialized='table', on_error='continue') }}
+{{ config(materialized='table') }}
 
 with daily as (
     select * from {{ ref('int_daily_revenue') }}

@@ -6,14 +6,17 @@
 /*
   demo_38_on_error_continue_downstream
   ------------------------------------
-  Downstream child that still runs even when its upstream fails, because the
-  dependency is DAG-only and the SQL itself reads from an independent relation.
+  Child model that should still run when its upstream fails under on_error='continue'.
+
+  KNOWN LIMITATION — dbt-fusion (dbt1701):
+    on_error='continue' is not yet supported in dbt Fusion. This model will be
+    SKIPPED (not run) until Fusion implements the feature. On dbt Core 1.12+
+    this model runs successfully even when the upstream fails.
 
   WHY THE depends_on COMMENT EXISTS:
-    We want a real parent/child relationship so dbt can demonstrate that this
-    child is not skipped when the parent fails under on_error='continue'.
-    The query itself does not read the failed relation, otherwise Snowflake would
-    fail because the upstream table was never created.
+    Establishes the real DAG edge so dbt tracks the parent/child relationship.
+    The SQL reads from dim_customers (not the failed parent) so it can succeed
+    even when the upstream table was never created.
 */
 
 -- depends_on: {{ ref('demo_38_on_error_continue_upstream') }}

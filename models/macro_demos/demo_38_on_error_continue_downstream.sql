@@ -1,19 +1,22 @@
 {{ config(
     materialized='table',
-    tags=['macro_demo', 'demo_38', 'on_error', 'continue']
+    tags=['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
 ) }}
 
 /*
   demo_38_on_error_continue_downstream
   ------------------------------------
-  Downstream child that still runs even when its upstream fails, because the
-  dependency is DAG-only and the SQL itself reads from an independent relation.
+  Downstream child kept in the DAG specifically to prove current Fusion behavior.
 
-  WHY THE depends_on COMMENT EXISTS:
-    We want a real parent/child relationship so dbt can demonstrate that this
-    child is not skipped when the parent fails under on_error='continue'.
-    The query itself does not read the failed relation, otherwise Snowflake would
-    fail because the upstream table was never created.
+  WHAT THIS MODEL SHOWS IN THIS PROJECT:
+    - there is a real parent/child dependency via the depends_on ref below
+    - when the upstream model fails, Fusion still skips this child
+    - that confirms on_error='continue' is not active yet in this environment
+
+  WHY THE QUERY STILL READS dim_customers:
+    If Fusion eventually supports continue, this child would be able to run
+    independently because it does not require the failed upstream relation to
+    exist in Snowflake.
 */
 
 -- depends_on: {{ ref('demo_38_on_error_continue_upstream') }}

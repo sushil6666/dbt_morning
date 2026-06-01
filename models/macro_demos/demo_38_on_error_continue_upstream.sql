@@ -1,22 +1,29 @@
 {{ config(
     materialized='table',
     on_error='continue',
-    tags=['macro_demo', 'demo_38', 'on_error', 'continue']
+    tags=['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
 ) }}
 
 /*
   demo_38_on_error_continue_upstream
   ----------------------------------
-  Intentionally fails to demonstrate the new on_error: continue behavior.
+  Documents a current dbt Fusion limitation around on_error='continue'.
 
-  WHAT THIS MODEL SHOWS:
-    - the model itself still errors
-    - because on_error='continue', dbt does not automatically skip its children
-    - downstream models can keep running if they do not rely on this relation existing
+  WHAT THIS MODEL SHOWS IN THIS PROJECT:
+    - the config parses, so the syntax is valid
+    - dbt Fusion warns that on_error='continue' is not yet supported
+    - the model itself errors at execution time
+    - downstream children are still skipped, matching default skip_children behavior
 
-  EXPECTED BEHAVIOUR:
-    - this model fails at execution time with a division-by-zero error
-    - downstream demo_38_on_error_continue_downstream still runs
+  WHY KEEP THIS DEMO:
+    This is a useful repo-level example of the gap between documented dbt config
+    syntax and current Fusion runtime support. It prevents people from assuming
+    they can rely on continue semantics in this environment.
+
+  EXPECTED BEHAVIOUR IN THIS FUSION ENVIRONMENT:
+    - parse emits a not-yet-supported warning
+    - this model fails with division by zero
+    - downstream demo_38_on_error_continue_downstream is skipped
 
   Run:
     dbt build --select demo_38_on_error_continue_upstream+

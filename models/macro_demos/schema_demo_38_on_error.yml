@@ -3,29 +3,31 @@ version: 2
 # ---------------------------------------------------------------------------
 # schema_demo_38_on_error.yml
 # ---------------------------------------------------------------------------
-# Demonstrates the new on_error: continue model config.
+# Documents the current dbt Fusion limitation for on_error: continue.
 #
 # DAG:
 #   demo_38_on_error_continue_upstream   ->   demo_38_on_error_continue_downstream
 #
-# Expected result when you run:
+# Actual result in this Fusion environment when you run:
 #   dbt build --select demo_38_on_error_continue_upstream+
 #
+#   - parse emits a warning that on_error: continue is not yet supported
 #   - upstream model errors intentionally
-#   - downstream model still runs because the upstream uses on_error: continue
-#   - this is different from the default skip_children behavior
+#   - downstream model is still skipped
+#   - effective behavior matches the default skip_children semantics
 # ---------------------------------------------------------------------------
 
 models:
   - name: demo_38_on_error_continue_upstream
     description: >
-      Intentionally failing parent model used to demonstrate `on_error: continue`.
-      The model errors at execution time, but dbt keeps scheduling downstream
-      children instead of skipping them.
+      Intentionally failing parent model used to document a current Fusion
+      limitation. The model sets `on_error: continue`, but Fusion warns that the
+      option is not yet supported and still skips downstream children after the
+      parent fails.
     config:
       materialized: table
       on_error: continue
-      tags: ['macro_demo', 'demo_38', 'on_error', 'continue']
+      tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
     columns:
       - name: customer_id
         description: Customer identifier from dim_customers.
@@ -36,16 +38,16 @@ models:
 
   - name: demo_38_on_error_continue_downstream
     description: >
-      Child model that still runs after the parent fails. The DAG dependency is
-      explicit, but the SQL reads from dim_customers instead of the failed parent
-      relation so the run can continue successfully.
+      Child model retained to prove the limitation in practice. Even with a DAG
+      dependency and an upstream parent configured with `on_error: continue`,
+      this child is skipped after the parent fails in the current Fusion runtime.
     config:
       materialized: table
-      tags: ['macro_demo', 'demo_38', 'on_error', 'continue']
+      tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
     columns:
       - name: customer_count
-        description: Row count of dim_customers used to prove the child executed.
+        description: Row count of dim_customers used to show what this child would build.
         data_type: number
       - name: demo_ran_at
-        description: Timestamp when the downstream demo model executed.
+        description: Timestamp the downstream model would write if it were allowed to run.
         data_type: timestamp_ntz

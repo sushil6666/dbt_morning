@@ -60,6 +60,7 @@ models:
         description: Average satisfaction rating captured for the visit.
         data_type: number(4,2)
 
+
   - name: demo_35_schema_drift_append_new_columns
     description: >
       Demonstrates additive schema drift handling for an incremental merge model.
@@ -96,6 +97,10 @@ models:
         description: Discount percentage applied to the ticket.
       - name: discount_category
         description: Legacy discount bucket preserved for backwards compatibility.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['nonexistent_demo_value']
       - name: updated_at
         description: Watermark column used for incremental filtering.
         data_tests:
@@ -257,6 +262,7 @@ sources:
         columns:
           - name: employee_id
             description: Employee identifier.
+
 
   - name: freshness_demo_microbatch
     description: >

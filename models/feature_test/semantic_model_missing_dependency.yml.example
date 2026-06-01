@@ -1,0 +1,17 @@
+# Repro: semantic model points at a missing or disabled dbt model
+# Copy the idea into:
+#   models/marts/core/schema.yml
+# in one semantic model definition
+#
+# Example temporary breakage pattern:
+#   model: ref('definitely_missing_model')
+#
+# Command:
+#   dbt parse --no-partial-parse
+#
+# Before:
+#   Older runtimes could surface IndexError-style failures.
+#
+# After:
+#   Newer dbt/Fusion should raise a clear semantic dependency / compilation
+#   error saying the model is missing or disabled.

@@ -1,0 +1,54 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# schema_demo_39_exception_handling.yml
+# ---------------------------------------------------------------------------
+# This demo stays safe and buildable.
+#
+# The actual before/after repro examples for exception handling now live in:
+#   models/feature_test/
+#
+# That folder is disabled in dbt_project.yml and stores versioned `.example`
+# files so we can keep repro cases in git without breaking normal parse/build
+# runs.
+#
+# Start with:
+#   - models/feature_test/generic_test_config_not_dict.yml.example
+#   - models/feature_test/doc_variable_description.yml.example
+#   - models/feature_test/cycle_a.sql.example
+#   - models/feature_test/cycle_b.sql.example
+#
+# Workflow:
+#   1) copy an example into the real project file it references
+#   2) run the documented dbt command
+#   3) verify the newer runtime shows a clear dbt/Fusion error or warning
+#   4) revert the temporary repro change
+# ---------------------------------------------------------------------------
+
+models:
+  - name: demo_39_exception_handling
+    description: >
+      Safe demo documenting how this project verifies improved exception
+      handling. Concrete repro examples are stored under models/feature_test as
+      disabled example files.
+    config:
+      materialized: view
+      tags: ['macro_demo', 'demo_39', 'exceptions']
+    columns:
+      - name: scenario_id
+        description: Static identifier for the demo row.
+        data_type: number
+        data_tests:
+          - not_null
+          - unique
+      - name: scenario_name
+        description: Short name for the documented demo scenario.
+        data_type: varchar
+        data_tests:
+          - not_null
+      - name: demo_status
+        description: Shows that the checked-in demo is intentionally safe to build.
+        data_type: varchar
+        data_tests:
+          - not_null
+

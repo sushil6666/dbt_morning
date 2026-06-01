@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Are VIP visitors actually more satisfied?
 -- Grain: one row per (haunted_house, is_vip)

@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Which haunted houses have the happiest visitors?
 -- Grain: one row per haunted house

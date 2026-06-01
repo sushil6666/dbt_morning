@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Ride popularity rankings based on review volume and average rating
 

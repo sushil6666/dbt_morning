@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Which haunted house time slots are most profitable and best-rated?
 -- Grain: one row per (haunted_house, visit_hour)

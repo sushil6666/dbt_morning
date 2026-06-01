@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- How does ticket spending vary relative to Halloween?
 -- Grain: one row per date bucket (proximity to Oct 31)

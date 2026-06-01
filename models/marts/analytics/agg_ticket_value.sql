@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Which ticket type delivers the best value?
 -- Grain: one row per (haunted_house, ticket_tier)

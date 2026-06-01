@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Customer lifetime value segmented by loyalty tier and value segment.
 -- Joins dim_customers to fct_all_ticket_sales to compute actual spend metrics.

@@ -263,6 +263,7 @@ models:
         +tags: ['core']
       analytics:
         +tags: ['analytics']
+        # +on_error: continue   # ready — uncomment once dbt-fusion supports dbt1701
 
     utilities:
       +materialized: table

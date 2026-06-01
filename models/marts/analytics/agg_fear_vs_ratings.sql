@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', on_error='continue') }}
 
 -- Is there a link between fear level and satisfaction ratings?
 -- Grain: one row per (visitor_type, fear_level) + one overall row per fear_level

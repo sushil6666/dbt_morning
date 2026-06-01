@@ -3,39 +3,22 @@ version: 2
 # ---------------------------------------------------------------------------
 # schema_demo_38_on_error.yml
 # ---------------------------------------------------------------------------
-<<<<<<< HEAD
 # Documents the current dbt Fusion limitation for on_error: continue.
-=======
-# Demonstrates on_error: continue (dbt Core 1.12 beta).
 #
 # KNOWN LIMITATION — dbt-fusion (dbt1701):
 #   on_error='continue' is not yet supported in dbt Fusion. The config is
-#   kept in place and will activate automatically once Fusion ships support.
-#   Until then, Fusion falls back to skip_children (default behaviour).
->>>>>>> fe0ea4fae18a633e7a79fb93e7e87a1edacf9c9c
+#   kept in place so the demo can be retested after future Fusion upgrades.
+#   Until then, Fusion falls back to skip_children (default behavior).
 #
 # DAG:
 #   demo_38_on_error_continue_upstream   ->   demo_38_on_error_continue_downstream
 #
-<<<<<<< HEAD
 # Actual result in this Fusion environment when you run:
-=======
-# Expected result on dbt Core 1.12+ (not yet on Fusion):
->>>>>>> fe0ea4fae18a633e7a79fb93e7e87a1edacf9c9c
 #   dbt build --select demo_38_on_error_continue_upstream+
-#   - upstream errors intentionally (division-by-zero)
-#   - downstream STILL RUNS because upstream uses on_error: continue
-#
-<<<<<<< HEAD
 #   - parse emits a warning that on_error: continue is not yet supported
 #   - upstream model errors intentionally
 #   - downstream model is still skipped
 #   - effective behavior matches the default skip_children semantics
-=======
-# Current result on dbt-fusion:
-#   - upstream errors
-#   - downstream is SKIPPED (skip_children fallback, dbt1701 warning emitted)
->>>>>>> fe0ea4fae18a633e7a79fb93e7e87a1edacf9c9c
 # ---------------------------------------------------------------------------
 
 models:

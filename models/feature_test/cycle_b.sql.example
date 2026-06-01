@@ -1,0 +1,6 @@
+{{ config(materialized='view') }}
+
+select *
+from {{ ref('demo_39_cycle_a') }}
+
+-- Pair with cycle_a.sql.example

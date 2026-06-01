@@ -1,0 +1,14 @@
+{{ config(materialized='view') }}
+
+select *
+from {{ ref('demo_39_cycle_b') }}
+
+-- Pair with cycle_b.sql.example
+-- Save both temporarily in models/macro_demos/ and run:
+--   dbt parse --no-partial-parse
+--
+-- Before:
+--   Older runtimes could raise a built-in RuntimeError.
+--
+-- After:
+--   Newer dbt/Fusion should raise a clear dbt-native cycle/compilation error.

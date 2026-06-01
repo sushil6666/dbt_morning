@@ -274,6 +274,12 @@ models:
       +materialized: view
       +schema: macro_demos
       +tags: ['macro_demo']
+    feature_test:
+      +enabled: false
+      +schema: feature_test
+      +tags: ['feature_test']
+
+
 
   # Pin Elementary models to the elementary schema so hooks write there too.
   # Without this dbt-fusion defaults to the target schema (DBT_BATCH_DEV).

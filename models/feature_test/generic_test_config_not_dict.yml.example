@@ -1,0 +1,18 @@
+# Repro: generic test config is not a dictionary
+# Copy this shape into:
+#   models/macro_demos/schema_demo_39_exception_handling.yml
+# under one column in data_tests:
+#
+#   data_tests:
+#     - not_null:
+#         config: "this should be a dictionary, not a string"
+#
+# Command:
+#   dbt parse --no-partial-parse
+#
+# Before:
+#   Older runtimes could surface an internal-looking parser exception.
+#
+# After:
+#   Newer dbt/Fusion should surface a clear YAML/config parsing error with file
+#   and field context.

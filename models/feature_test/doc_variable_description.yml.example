@@ -1,0 +1,16 @@
+# Repro: doc() called with a variable argument in a description
+# Copy this into:
+#   models/macro_demos/schema_demo_39_exception_handling.yml
+# as the model description:
+#
+#   description: "{{ doc(my_variable) }}"
+#
+# Command:
+#   dbt compile --no-partial-parse --select demo_39_exception_handling
+#
+# Before:
+#   Older runtimes could surface an internal AttributeError-style failure.
+#
+# After:
+#   Newer dbt/Fusion should report a clear docs/config warning or error instead
+#   of an internal crash.

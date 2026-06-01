@@ -1,0 +1,17 @@
+-- Repro: invalid snapshot configuration
+-- Copy the idea into:
+--   snapshots/snp_customers.sql
+--
+-- Example temporary breakage:
+--   keep strategy = 'check'
+--   remove unique_key or set it to an invalid value
+--
+-- Command:
+--   dbt build --select path:snapshots/snp_customers.sql
+--
+-- Before:
+--   Older runtimes could show long Python output during snapshot validation.
+--
+-- After:
+--   Newer dbt/Fusion should show the relevant snapshot validation message
+--   directly, without an internal traceback.

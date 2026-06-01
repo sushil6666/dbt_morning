@@ -1,0 +1,13 @@
+{% macro demo_39_fail_operation() %}
+  {{ exceptions.raise_compiler_error('demo_39 forced run-operation failure') }}
+{% endmacro %}
+
+-- Save temporarily under macros/ and run:
+--   dbt run-operation demo_39_fail_operation
+--
+-- Before:
+--   Failure details were harder to inspect downstream.
+--
+-- After:
+--   The exception message should be clear in CLI output, and in job contexts it
+--   should also be captured in run_results.json.

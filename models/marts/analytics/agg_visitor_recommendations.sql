@@ -1,4 +1,4 @@
-{{ config(materialized='table', on_error='continue') }}
+{{ config(materialized='table') }}
 
 -- Are some visitor types more likely to recommend?
 -- Grain: one row per visitor type

@@ -4,8 +4,10 @@
 ) }}
 
 {#
-  The custom generic tests (valid_ticket_types, rating_in_range) are defined in
-  macros/11_generic_tests/test_business_rule.sql and registered in schema_demo_11_generic_tests.yml.
+  The custom generic tests (`valid_ticket_types`, `rating_in_range`) are defined in
+  `macros/11_generic_tests/test_valid_ticket_types.sql` and
+  `macros/11_generic_tests/test_rating_in_range.sql`, and are referenced from
+  `models/macro_demos/schema_demo_11_generic_tests.yml`.
   Run: dbt test --select demo_11_generic_tests
 #}
 

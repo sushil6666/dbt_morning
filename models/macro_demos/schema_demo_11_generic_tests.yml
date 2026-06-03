@@ -6,13 +6,13 @@ models:
     columns:
       - name: ticket_id
         description: "Unique ticket identifier"
-        tests:
+        data_tests:
           - not_null
           - unique
 
       - name: ticket_type
         description: "Category of ticket purchased"
-        tests:
+        data_tests:
           - not_null
           - valid_ticket_types:
               arguments:
@@ -20,7 +20,7 @@ models:
 
       - name: satisfaction_rating
         description: "Customer satisfaction score 1-5"
-        tests:
+        data_tests:
           - rating_in_range:
               arguments:
                 min_val: 1

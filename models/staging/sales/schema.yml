@@ -23,13 +23,22 @@ models:
       # store_failures: true    # not yet supported at model config level in dbt-fusion
       contract:
         enforced: true
+    data_tests:
+      - no_duplicate_combination:
+          arguments:
+            key_columns: ['ticket_id']
+      - date_column_order:
+          arguments:
+            earlier_column: purchase_date
+            later_column: visit_date
+            allow_equal: true
     columns:
       - name: ticket_id
         description: >
           Natural primary key for the ticket purchase, sourced from `raw_tickets.ticket_id`.
           Varchar. Use for joins to visit-level models and fact tables.
         data_type: varchar
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -39,7 +48,7 @@ models:
           purchasing customer. Not null — all tickets in the raw source are linked to
           a customer account.
         data_type: varchar
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_type
@@ -48,7 +57,7 @@ models:
           `group_pass`. This is the raw value from the source — for dimension attributes
           (fast pass inclusion, VIP benefits), join to `dim_ticket_types`.
         data_type: varchar
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -60,7 +69,7 @@ models:
           tickets are bought in advance. Use `visit_date` for visit-day analytics and
           `purchase_date` for sales/revenue booking analytics.
         data_type: date
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
@@ -68,7 +77,7 @@ models:
           Date the ticket is valid for park entry (YYYY-MM-DD). This is the calendar
           date used in all visit-level fact tables and daily revenue aggregations.
         data_type: date
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_channel
@@ -76,7 +85,7 @@ models:
           Channel through which the ticket was purchased.
           Values: `online`, `in_park`, `kiosk`, `phone`.
         data_type: varchar
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
                 values: ['online', 'in_park', 'kiosk', 'phone', 'referral']
@@ -84,13 +93,13 @@ models:
       - name: base_price
         description: "{{ doc('ticket_price_definition') }}"
         data_type: numeric(10,2)
-        tests:
+        data_tests:
           - not_null
 
       - name: discount_amount
         description: "{{ doc('ticket_price_definition') }}"
         data_type: numeric(12,4)
-        tests:
+        data_tests:
           - not_null
 
       - name: final_price
@@ -99,7 +108,7 @@ models:
           Cast to `numeric(10,2)`. This is the **primary revenue measure** for ticket
           reporting. Always non-negative.
         data_type: numeric(10,2)
-        tests:
+        data_tests:
           - not_null
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
@@ -117,8 +126,13 @@ models:
           Boolean. TRUE when `discount_amount > 0`, indicating a promotional price was
           applied. FALSE for full-price purchases. Derived during staging.
         data_type: boolean
-        tests:
+        data_tests:
           - not_null
+          - boolean_column_matches_condition:
+              arguments:
+                true_condition: "discount_amount > 0"
+
+
 
 
   - name: stg_sales__ticket_sales_online
@@ -257,6 +271,8 @@ models:
         description: Date the ticket is valid for park entry (YYYY-MM-DD).
         tests:
           - not_null
+
+
 
       - name: purchase_timestamp
         description: >

@@ -62,6 +62,8 @@ models:
           - accepted_values:
               arguments:
                 values: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
+              config:
+                where: "purchase_date >= current_date - 30"
 
       - name: purchase_date
         description: >
@@ -150,35 +152,41 @@ models:
       raw source does not carry payment method for online purchases.
 
       Owner: revenue@themeparkanalytics.com
+    data_tests:
+      - where_clause:
+          arguments:
+            row_condition: "1 = 1"
+
+            failure_condition: "purchase_channel != 'online' or is_online != true or payment_method != 'credit_card'"
     columns:
       - name: sale_id
         description: >
           Primary key for this sale record. Equal to `ticket_id` from the source.
           Used as the grain key in `fct_all_ticket_sales`.
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: customer_id
         description: Foreign key to `stg_customer_data__customers.customer_id`.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_id
         description: >
           The original ticket identifier from `raw_tickets`. Preserved alongside `sale_id`
           for joins to `stg_sales__tickets` when ticket-level attributes are needed.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_date
         description: Date the ticket was purchased online (YYYY-MM-DD).
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: Date the ticket is valid for park entry (YYYY-MM-DD).
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_timestamp
@@ -191,7 +199,7 @@ models:
           Amount paid by the customer in USD (`final_price` from the raw source), cast
           to `numeric(10,2)`. This is the **primary revenue measure** for this channel.
           See also: `{{ doc('ticket_price_definition') }}`
-        tests:
+        data_tests:
           - not_null
 
       - name: discount_percent
@@ -199,7 +207,7 @@ models:
           Discount applied as a percentage of base price:
           `ROUND((discount_amount / base_price) * 100, 2)`. Zero when `base_price = 0`
           to avoid division by zero. Zero also when no discount was applied.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_hour
@@ -212,17 +220,17 @@ models:
           Payment method used. Hardcoded to `'credit_card'` for all online sales — the
           raw source does not record payment method for this channel. Do not use for
           payment method analysis without filtering to physical sales.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_channel
         description: Hardcoded to `'online'` for all rows in this model.
-        tests:
+        data_tests:
           - not_null
 
       - name: is_online
         description: Boolean. Always TRUE for this model (online channel only).
-        tests:
+        data_tests:
           - not_null
 
 
@@ -241,35 +249,41 @@ models:
       as a proxy — the raw source does not carry payment method for physical transactions.
 
       Owner: revenue@themeparkanalytics.com
+    data_tests:
+      - where_clause:
+          arguments:
+            row_condition: "1 = 1"
+
+            failure_condition: "purchase_channel != 'physical' or is_online != false or payment_method != 'cash'"
     columns:
       - name: sale_id
         description: >
           Primary key for this sale record. Equal to `ticket_id` from the source.
           Used as the grain key in `fct_all_ticket_sales`.
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: customer_id
         description: Foreign key to `stg_customer_data__customers.customer_id`.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_id
         description: >
           The original ticket identifier from `raw_tickets`. Preserved alongside `sale_id`
           for joins to `stg_sales__tickets` when ticket-level attributes are needed.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_date
         description: Date the ticket was purchased (YYYY-MM-DD).
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: Date the ticket is valid for park entry (YYYY-MM-DD).
-        tests:
+        data_tests:
           - not_null
 
 
@@ -283,14 +297,14 @@ models:
         description: >
           Amount paid by the customer in USD (`final_price` from the raw source), cast
           to `numeric(10,2)`. Primary revenue measure for this channel.
-        tests:
+        data_tests:
           - not_null
 
       - name: discount_percent
         description: >
           Discount as a percentage of base price. Zero when no discount was applied or
           when `base_price = 0` (division-by-zero guard).
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_hour
@@ -303,19 +317,19 @@ models:
           Payment method used. Hardcoded to `'cash'` for all physical sales — the raw
           source does not record payment method for this channel. Do not use for payment
           method analysis.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_channel
         description: >
           Hardcoded to `'physical'` for all rows in this model, indicating an in-person,
           kiosk, or phone purchase.
-        tests:
+        data_tests:
           - not_null
 
       - name: is_online
         description: Boolean. Always FALSE for this model (physical channel only).
-        tests:
+        data_tests:
           - not_null
 
 
@@ -338,7 +352,7 @@ models:
         description: >
           Natural primary key for the POS transaction line item, sourced from
           `raw_sales_transactions.transaction_id`. Varchar.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -346,21 +360,21 @@ models:
         description: >
           Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
           customer who made the in-park purchase.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: >
           Date of the park visit when the purchase was made (YYYY-MM-DD). Use this to
           join in-park spend to ticket purchases in `int_customer_visits`.
-        tests:
+        data_tests:
           - not_null
 
       - name: category
         description: >
           High-level product category of the purchased item.
           Values: `food`, `merchandise`, `game`, `photo`.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -370,14 +384,14 @@ models:
         description: >
           Name of the product or item sold (e.g. 'Churro', 'Park T-Shirt', 'Photo Package').
           Free-text from the POS system — not normalised or deduplicated.
-        tests:
+        data_tests:
           - not_null
 
       - name: quantity
         description: >
           Number of units purchased in this line item. Integer. Always ≥ 1.
           To get total spend, multiply by `unit_price` (equals `total_amount`).
-        tests:
+        data_tests:
           - not_null
 
       - name: unit_price
@@ -385,7 +399,8 @@ models:
           Price per single unit at the time of sale, cast to `numeric(10,2)`.
           This is the price that was charged, not a catalogue price — may reflect
           promotional pricing.
-        tests:
+        data_tests:
+
           - not_null
 
       - name: total_amount
@@ -393,7 +408,7 @@ models:
           Total line item value: `quantity × unit_price`, cast to `numeric(10,2)`.
           Additive measure — safe to SUM across any dimension.
           This is the **primary in-park spend measure**.
-        tests:
+        data_tests:
           - not_null
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
@@ -404,7 +419,7 @@ models:
         description: >
           Payment method used to complete the transaction.
           Values: `credit_card`, `cash`, `kiosk`, `mobile`.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -414,7 +429,7 @@ models:
         description: >
           Name of the outlet or stand where the sale occurred (e.g. 'Main Street Grill',
           'Souvenir Shack', 'Arcade Zone'). Free-text from the POS system.
-        tests:
+        data_tests:
           - not_null
 
 

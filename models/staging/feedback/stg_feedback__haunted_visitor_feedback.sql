@@ -17,7 +17,7 @@ rides as (
     where is_haunted = true
 ),
 
-renamed as (
+renamed1 as (
     select
         f.feedback_id,
         null::number                                            as sale_id,
@@ -57,4 +57,4 @@ renamed as (
     left join rides r on f.ride_id = r.ride_id
 )
 
-select * from renamed
+select * from renamed1

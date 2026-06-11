@@ -10,10 +10,14 @@ version: 2
 #   kept in place so the demo can be retested after future Fusion upgrades.
 #   Until then, Fusion falls back to skip_children (default behavior).
 #
+# CURRENT PROJECT STATE:
+#   Both demo_38 models are disabled so normal builds do not execute an
+#   intentionally failing demo.
+#
 # DAG:
 #   demo_38_on_error_continue_upstream   ->   demo_38_on_error_continue_downstream
 #
-# Actual result in this Fusion environment when you run:
+# Historical result in this Fusion environment when you run:
 #   dbt build --select demo_38_on_error_continue_upstream+
 #   - parse emits a warning that on_error: continue is not yet supported
 #   - upstream model errors intentionally
@@ -24,17 +28,19 @@ version: 2
 models:
   - name: demo_38_on_error_continue_upstream
     description: >
-      Intentionally failing parent model used to document a current Fusion
-      limitation. The model sets `on_error: continue`, but Fusion warns that the
-      option is not yet supported and still skips downstream children after the
-      parent fails.
+      Documents the current dbt Fusion limitation around `on_error: continue`.
+      This demo is disabled in normal project runs because it fails
+      intentionally at execution time with division by zero. If re-enabled, it
+      shows that Fusion currently warns that the option is not yet supported
+      and still skips downstream children in practice.
     config:
+      enabled: false
       materialized: table
       on_error: continue
       tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
     columns:
       - name: customer_id
-        description: Customer identifier from dim_customers.
+        description: Customer identifier from `dim_customers`.
         data_type: varchar
       - name: force_failure
         description: Intentionally invalid numeric expression that forces runtime failure.
@@ -42,15 +48,17 @@ models:
 
   - name: demo_38_on_error_continue_downstream
     description: >
-      Child model retained to prove the limitation in practice. Even with a DAG
-      dependency and an upstream parent configured with `on_error: continue`,
-      this child is skipped after the parent fails in the current Fusion runtime.
+      Downstream child retained specifically to prove current Fusion behavior.
+      This model is disabled alongside the upstream demo so normal builds do not
+      depend on an intentionally failing example. If re-enabled, it shows that
+      a child is still skipped after the parent fails in the current Fusion runtime.
     config:
+      enabled: false
       materialized: table
       tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
     columns:
       - name: customer_count
-        description: Row count of dim_customers used to show what this child would build.
+        description: Row count of `dim_customers` used to show what this child would build.
         data_type: number
       - name: demo_ran_at
         description: Timestamp the downstream model would write if it were allowed to run.

@@ -17,3 +17,4 @@
 select * from {{ ref('stg_customer_data__customers') }}
 
 {% endsnapshot %}
+

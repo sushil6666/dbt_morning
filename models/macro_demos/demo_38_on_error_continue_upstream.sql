@@ -1,4 +1,5 @@
 {{ config(
+    enabled=false,
     materialized='table',
     on_error='continue',
     tags=['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
@@ -7,25 +8,29 @@
 /*
   demo_38_on_error_continue_upstream
   ----------------------------------
-  Documents a current dbt Fusion limitation around on_error='continue'.
+  PURPOSE:
+    Documents the current dbt Fusion limitation around `on_error='continue'`.
 
-  WHAT THIS MODEL SHOWS IN THIS PROJECT:
-    - the config parses, so the syntax is valid
-    - dbt Fusion warns that on_error='continue' is not yet supported
-    - the model itself errors at execution time
-    - downstream children are still skipped, matching default skip_children behavior
+  CURRENT STATUS:
+    Disabled in this project because it fails intentionally with division by
+    zero and is no longer meant to run as part of normal development builds.
 
-  WHY KEEP THIS DEMO:
-    This is a useful repo-level example of the gap between documented dbt config
-    syntax and current Fusion runtime support. It prevents people from assuming
-    they can rely on continue semantics in this environment.
+  WHAT THIS MODEL DEMONSTRATES:
+    - the config is valid and parses successfully
+    - Fusion emits a warning that `on_error='continue'` is not yet supported
+    - this model fails intentionally at execution time
+    - downstream children are still skipped, matching effective `skip_children` behavior
 
-  EXPECTED BEHAVIOUR IN THIS FUSION ENVIRONMENT:
+  WHY THIS DEMO STAYS IN THE REPO:
+    It gives the project a concrete, reproducible example of the gap between
+    supported dbt config syntax and current Fusion runtime behavior.
+
+  EXPECTED RESULT IN THIS ENVIRONMENT IF RE-ENABLED:
     - parse emits a not-yet-supported warning
     - this model fails with division by zero
-    - downstream demo_38_on_error_continue_downstream is skipped
+    - `demo_38_on_error_continue_downstream` is skipped
 
-  Run:
+  RUN:
     dbt build --select demo_38_on_error_continue_upstream+
 */
 

@@ -28,9 +28,10 @@ version: 2
 models:
   - name: demo_39_exception_handling
     description: >
-      Safe demo documenting how this project verifies improved exception
-      handling. Concrete repro examples are stored under models/feature_test as
-      disabled example files.
+      Safe reference model for documenting how newer dbt/Fusion runtimes report
+      clearer errors. This checked-in model stays intentionally buildable and
+      returns a single row, while the concrete repro examples live under
+      `models/feature_test` as disabled example files.
     config:
       materialized: view
       tags: ['macro_demo', 'demo_39', 'exceptions']
@@ -51,4 +52,3 @@ models:
         data_type: varchar
         data_tests:
           - not_null
-

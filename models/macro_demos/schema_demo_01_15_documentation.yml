@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: demo_01_audit_columns
+    description: >
+      Demonstrates the audit_columns macro.
+      Extends a visit-level fact selection from fct_visits with standard dbt
+      audit metadata columns so downstream users can trace when and by which
+      run a row was built.
+
+  - name: demo_02_incremental_filter
+    description: >
+      Demonstrates the incremental_filter macro in an incremental model.
+      Loads ticket data from stg_sales__tickets and, on incremental runs,
+      restricts processing to a recent visit_date window instead of scanning
+      the full source each time.
+
+  - name: demo_05_row_access_policy
+    description: >
+      Demonstrates the row access policy attachment pattern for Snowflake.
+      Builds an employee dataset from dim_employees that can be protected with a
+      pre-created Snowflake row access policy on zone_assignment via post-hook,
+      so different roles only see the rows they are allowed to access.
+
+  - name: demo_06_surrogate_key
+    description: >
+      Demonstrates the cross_db_surrogate_key macro.
+      Creates a stable hashed surrogate key from transaction_id, customer_id,
+      and visit_date to provide a warehouse-safe identifier for sales
+      transactions across environments and adapters.
+
+  - name: demo_07_zero_downtime
+    description: >
+      Demonstrates a zero-downtime deployment pattern for Snowflake.
+      Uses a write-audit-publish approach where candidate data is built and
+      validated before a metadata-only swap publishes it, avoiding downtime for
+      downstream consumers during release.
+
+  - name: demo_09_clustering
+    description: >
+      Demonstrates applying Snowflake clustering with a post-hook.
+      Materializes a visit-level table from fct_visits and applies clustering on
+      visit_date and ticket_type to improve pruning and query performance for
+      common access patterns.
+
+  - name: demo_12_date_spine
+    description: >
+      Demonstrates a date spine pattern for gap-free time series analysis.
+      Generates a daily spine for the analysis window, left joins visit metrics,
+      and keeps dates with zero visits so reporting does not hide missing days.
+
+  - name: demo_13_query_tag
+    description: >
+      Demonstrates structured Snowflake query tagging with pre- and post-hooks.
+      Runs the model with a JSON query tag that captures model name,
+      environment, run identifier, and team so warehouse query history can be
+      traced back to dbt activity.
+
+  - name: demo_15_partitioning
+    description: >
+      Demonstrates configurable physical layout for an incremental model.
+      Builds a visit-level incremental table and applies runtime-configurable
+      cluster columns after the build, showing how partitioning or clustering
+      strategy can be tuned without rewriting model logic.

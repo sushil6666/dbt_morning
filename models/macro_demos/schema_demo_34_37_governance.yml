@@ -100,7 +100,8 @@ models:
         data_tests:
           - accepted_values:
               arguments:
-                values: ['nonexistent_demo_value']
+                values: ['No Discount', 'Low Discount', 'Mid Discount', 'High Discount']
+
       - name: updated_at
         description: Watermark column used for incremental filtering.
         data_tests:

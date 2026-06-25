@@ -284,10 +284,6 @@ dbt seed
 dbt build
 ```
 
-8. Generate and serve docs.
-
-```bash
-dbt docs generate && dbt docs serve
 ```
 
 If you want snapshot history locally, also run:

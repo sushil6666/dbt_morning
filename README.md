@@ -1,4 +1,4 @@
-# Horrorland Theme Park Analytics — dbt Project
+# Horrorland Theme Park Analytics : dbt Project
 
 A **dbt** project for theme park ticket sales, visitor satisfaction, ride performance, and seasonal haunted attractions analytics, built on **Snowflake**. The business scenario appears to be a theme park with a haunted attractions program. That is an inference from the model and column names in this repo, not an explicitly stated business brief.
 

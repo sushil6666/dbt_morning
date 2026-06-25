@@ -314,3 +314,6 @@ dbt snapshot
 ---
 
 Created by [Analytics with Sushil](https://analyticswithsushil.com).
+
+## License
+   This project is licensed under the MIT License : see [LICENSE] for details.

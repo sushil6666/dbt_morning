@@ -104,21 +104,6 @@ Examples from actual SQL files:
 - `int_daily_revenue.sql`, `int_customer_visits.sql`, and `int_ride_metrics.sql` are ephemeral intermediate models
 - `stg_sales__tickets.sql` follows the staging `view` pattern and also enforces a contract in YAML
 
-Incremental demo models:
-
-- `demo_21_incremental_merge.sql` uses `materialized='incremental'` with `incremental_strategy='merge'`
-- `demo_22_incremental_append.sql` uses `incremental_strategy='append'`
-- `demo_23_incremental_delete_insert.sql` uses `incremental_strategy='delete+insert'`
-- `demo_24_incremental_insert_overwrite.sql` uses `incremental_strategy='insert_overwrite'`
-- `demo_25_incremental_microbatch.sql` uses `incremental_strategy='microbatch'`
-
-Custom Snowflake materialization demos:
-
-- `demo_16_temp_table.sql` uses `temp_table`
-- `demo_17_hybrid_table.sql` uses `hybrid_table`
-- `demo_18_event_table.sql` uses `event_table`
-- `demo_19_iceberg_table.sql` uses `iceberg_table`
-- `demo_27_dynamic_table.sql` uses `dynamic_table`
 
 Snapshots under `snapshots/` are dbt snapshot resources with `strategy='check'` based on selected business columns.
 

@@ -29,19 +29,19 @@ models:
 
       - name: sale_id
         description: Surrogate primary key — uniquely identifies each ticket sale record.
-        tests:
+        data_tests:
           - not_null          # enforces the NOT NULL DDL constraint
           - unique            # enforces the PRIMARY KEY uniqueness intent
 
       - name: ticket_id
         description: Source ticket identifier — one sale per ticket.
-        tests:
+        data_tests:
           - not_null
           - unique            # enforces the UNIQUE DDL constraint
 
       - name: customer_id
         description: Foreign key to dim_customers.
-        tests:
+        data_tests:
           - not_null
           - relationships:    # enforces the FOREIGN KEY DDL constraint
               arguments:
@@ -50,12 +50,12 @@ models:
 
       - name: visit_date
         description: Date of the park visit.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_type
         description: Type of ticket purchased.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:

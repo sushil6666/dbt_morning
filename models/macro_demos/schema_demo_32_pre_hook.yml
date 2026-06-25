@@ -52,29 +52,29 @@ models:
         description: >
           Monday-anchored ISO week start date (date_trunc('week') with WEEK_START=1).
           Always a Monday — proves the WEEK_START pre-hook fired.
-        tests:
+        data_tests:
           - not_null
       - name: week_start_day
         description: >
           Day name of week_start derived from dayname(). Always 'Mon' when
           the WEEK_START=1 pre-hook is active. Use this column to verify the
           hook is firing correctly — if it reads 'Sun', the hook was skipped.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['Mon']
       - name: ticket_type
         description: Ticket product type for this weekly bucket.
-        tests:
+        data_tests:
           - not_null
       - name: visit_count
         description: Number of visits in this week for this ticket type.
-        tests:
+        data_tests:
           - not_null
       - name: total_revenue
         description: Sum of total_visit_spend for this week and ticket type.
-        tests:
+        data_tests:
           - not_null
       - name: avg_spend_per_visit
         description: Mean total_visit_spend for this week and ticket type.
@@ -84,5 +84,5 @@ models:
         description: >
           Cumulative total_revenue per ticket_type ordered by week_start
           (unbounded preceding → current row). Resets per ticket_type partition.
-        tests:
+        data_tests:
           - not_null

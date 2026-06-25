@@ -6,18 +6,19 @@ version: 2
 # Documents the current dbt Fusion limitation for on_error: continue.
 #
 # KNOWN LIMITATION — dbt-fusion (dbt1701):
-#   on_error='continue' is not yet supported in dbt Fusion. The config is
-#   kept in place so the demo can be retested after future Fusion upgrades.
-#   Until then, Fusion falls back to skip_children (default behavior).
+#   on_error='continue' is not yet supported in dbt Fusion.
 #
 # CURRENT PROJECT STATE:
 #   Both demo_38 models are disabled so normal builds do not execute an
-#   intentionally failing demo.
+#   intentionally failing demo. The unsupported config is not set in this file,
+#   so the project stays warning-free under Fusion while the descriptions still
+#   document the current limitation.
 #
 # DAG:
 #   demo_38_on_error_continue_upstream   ->   demo_38_on_error_continue_downstream
 #
-# Historical result in this Fusion environment when you run:
+# Historical result in this Fusion environment when you run the demo with
+# on_error: continue configured:
 #   dbt build --select demo_38_on_error_continue_upstream+
 #   - parse emits a warning that on_error: continue is not yet supported
 #   - upstream model errors intentionally
@@ -30,13 +31,13 @@ models:
     description: >
       Documents the current dbt Fusion limitation around `on_error: continue`.
       This demo is disabled in normal project runs because it fails
-      intentionally at execution time with division by zero. If re-enabled, it
-      shows that Fusion currently warns that the option is not yet supported
-      and still skips downstream children in practice.
+      intentionally at execution time with division by zero. If re-enabled and
+      configured with `on_error: continue`, it shows that Fusion currently
+      warns that the option is not yet supported and still skips downstream
+      children in practice.
     config:
       enabled: false
       materialized: table
-      on_error: continue
       tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
     columns:
       - name: customer_id

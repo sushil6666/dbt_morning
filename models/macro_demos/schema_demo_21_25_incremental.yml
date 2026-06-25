@@ -33,13 +33,13 @@ models:
 
       - name: sale_id
         description: Surrogate primary key for each ticket sale.
-        tests:
+        data_tests:
           - not_null
           - unique
 
       - name: customer_id
         description: Foreign key to dim_customers.
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -48,17 +48,17 @@ models:
 
       - name: ticket_id
         description: Source ticket identifier.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_date
         description: Date the ticket was purchased — clustering key.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: Date of the planned park visit.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_price
@@ -69,7 +69,7 @@ models:
 
       - name: discount_category
         description: Bucketed discount label (No Discount, Low, Mid, High).
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
                 values: ['No Discount', 'Low Discount', 'Mid Discount', 'High Discount']
@@ -79,14 +79,14 @@ models:
 
       - name: purchase_channel
         description: Channel through which the sale was made.
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
                 values: ['online', 'in_park', 'kiosk', 'phone']
 
       - name: updated_at
         description: Timestamp of the last modification — serves as the merge watermark.
-        tests:
+        data_tests:
           - not_null
 
   # -------------------------------------------------------------------------
@@ -107,22 +107,22 @@ models:
 
       - name: sales_key
         description: Surrogate key for the sales transaction.
-        tests:
+        data_tests:
           - not_null
 
       - name: transaction_id
         description: Source transaction identifier from the POS system.
-        tests:
+        data_tests:
           - not_null
 
       - name: customer_id
         description: Customer who made the purchase.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: Date of the in-park visit — used as the append watermark.
-        tests:
+        data_tests:
           - not_null
 
       - name: category
@@ -148,7 +148,7 @@ models:
 
       - name: _loaded_at
         description: Timestamp when this row was loaded into the target — set at query time.
-        tests:
+        data_tests:
           - not_null
 
   # -------------------------------------------------------------------------
@@ -168,12 +168,12 @@ models:
 
       - name: visit_date
         description: Partition column — the unit of delete-and-replace. All rows for a given date are rewritten together.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_type
         description: Ticket category for this daily summary row.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -181,12 +181,12 @@ models:
 
       - name: unique_visitors
         description: Count of distinct customer_ids who visited on this date.
-        tests:
+        data_tests:
           - not_null
 
       - name: total_visits
         description: Total number of visit records for this date and ticket type.
-        tests:
+        data_tests:
           - not_null
 
       - name: total_ticket_revenue
@@ -225,22 +225,22 @@ models:
 
       - name: revenue_month
         description: First day of the month — partition column for the overwrite. Must be aligned to month boundaries.
-        tests:
+        data_tests:
           - not_null
 
       - name: category
         description: Spend category (food, merchandise, ride_extras, etc.).
-        tests:
+        data_tests:
           - not_null
 
       - name: location
         description: Park zone or outlet.
-        tests:
+        data_tests:
           - not_null
 
       - name: payment_method
         description: Payment method used for this segment.
-        tests:
+        data_tests:
           - not_null
 
       - name: total_revenue
@@ -281,12 +281,12 @@ models:
 
       - name: sale_id
         description: Surrogate primary key for each ticket sale.
-        tests:
+        data_tests:
           - not_null
 
       - name: customer_id
         description: Foreign key to dim_customers.
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -295,22 +295,22 @@ models:
 
       - name: ticket_id
         description: Source ticket identifier.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_date
         description: Date the ticket was purchased — cluster key aligned to batch boundaries.
-        tests:
+        data_tests:
           - not_null
 
       - name: purchase_ts
         description: purchase_date cast to timestamp — the event_time column used by dbt to define batch windows.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: Date of the planned park visit.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_price
@@ -321,7 +321,7 @@ models:
 
       - name: discount_category
         description: Bucketed discount label.
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
                 values: ['No Discount', 'Low Discount', 'Mid Discount', 'High Discount']
@@ -334,12 +334,13 @@ models:
 
       - name: business_season
         description: Business season label derived from visit_date month.
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
                 values: ['Halloween Season', 'Summer', 'Winter', 'Spring', 'Fall']
 
       - name: updated_at
         description: Last modification timestamp from the source system.
-        tests:
+        data_tests:
           - not_null
+

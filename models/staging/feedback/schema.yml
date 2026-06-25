@@ -22,7 +22,7 @@ models:
         description: >
           Natural primary key for the feedback submission, sourced from
           `raw_feedback.feedback_id`. Varchar.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -30,7 +30,7 @@ models:
         description: >
           Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
           guest who submitted the feedback.
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -41,7 +41,7 @@ models:
         description: >
           Date of the park visit the feedback refers to (YYYY-MM-DD). A single visit
           may generate multiple feedback rows across different categories.
-        tests:
+        data_tests:
           - not_null
 
       - name: ride_id
@@ -56,7 +56,7 @@ models:
           Overall satisfaction score submitted by the guest. Integer scale 1–5:
           1 = very dissatisfied, 3 = neutral, 5 = very satisfied.
           This is the canonical satisfaction metric used across all downstream models.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -67,7 +67,7 @@ models:
           Topic area the feedback relates to.
           Values: `ride`, `food`, `general`, `wait_times`, `staff`, `cleanliness`.
           For ride-specific analysis, filter to `category = 'ride'` AND `ride_id IS NOT NULL`.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -79,7 +79,7 @@ models:
           of the `rating` value (may occasionally differ from `rating_category`).
           Values: `positive`, `neutral`, `negative`.
           For a data-derived sentiment classification, use `rating_category` instead.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -95,7 +95,7 @@ models:
         description: >
           UTC timestamp when the feedback was submitted. Distinct from `visit_date` —
           guests typically submit feedback days after their visit.
-        tests:
+        data_tests:
           - not_null
 
       - name: rating_category
@@ -105,7 +105,7 @@ models:
           Use this column for consistent sentiment bucketing in analytics models.
           Note: may differ from the source `sentiment` column which is pre-classified
           by the feedback platform independently.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -141,7 +141,7 @@ models:
         description: >
           Natural primary key for the feedback submission, sourced from
           `raw_feedback.feedback_id`. Varchar.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -198,7 +198,7 @@ models:
           Guest satisfaction score on a 1–5 scale, sourced from `raw_feedback.rating`
           cast to integer. This is the primary satisfaction measure for all haunted house
           analytics. Equivalent to `stg_feedback__visitor_feedback.rating`.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -209,14 +209,14 @@ models:
           Boolean. TRUE when `satisfaction_rating ≥ 4`. Derived during staging as a
           proxy for Net Promoter intent. Used in recommendation rate calculations across
           `agg_happiest_houses`, `agg_visitor_recommendations`, and other analytics models.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: >
           Date of the park visit the feedback refers to (YYYY-MM-DD). Used for time-series
           and seasonal analysis of haunted house satisfaction.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_hour

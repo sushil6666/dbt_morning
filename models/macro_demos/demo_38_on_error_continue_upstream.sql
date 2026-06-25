@@ -1,7 +1,6 @@
 {{ config(
     enabled=false,
     materialized='table',
-    on_error='continue',
     tags=['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
 ) }}
 
@@ -16,8 +15,7 @@
     zero and is no longer meant to run as part of normal development builds.
 
   WHAT THIS MODEL DEMONSTRATES:
-    - the config is valid and parses successfully
-    - Fusion emits a warning that `on_error='continue'` is not yet supported
+    - if configured with `on_error='continue'`, Fusion emits a not-yet-supported warning
     - this model fails intentionally at execution time
     - downstream children are still skipped, matching effective `skip_children` behavior
 
@@ -25,7 +23,7 @@
     It gives the project a concrete, reproducible example of the gap between
     supported dbt config syntax and current Fusion runtime behavior.
 
-  EXPECTED RESULT IN THIS ENVIRONMENT IF RE-ENABLED:
+  EXPECTED RESULT IN THIS ENVIRONMENT IF RE-ENABLED WITH on_error='continue':
     - parse emits a not-yet-supported warning
     - this model fails with division by zero
     - `demo_38_on_error_continue_downstream` is skipped

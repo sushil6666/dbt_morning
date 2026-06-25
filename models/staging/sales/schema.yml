@@ -254,7 +254,7 @@ models:
           arguments:
             row_condition: "1 = 1"
 
-            failure_condition: "purchase_channel != 'physical' or is_online != false or payment_method != 'cash'"
+            failure_condition: "purchase_channel not in ('in_park', 'kiosk', 'phone') or is_online != false or payment_method != 'cash'"
     columns:
       - name: sale_id
         description: >

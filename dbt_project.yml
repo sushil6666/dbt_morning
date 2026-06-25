@@ -26,8 +26,11 @@ clean-targets:
 
 on-run-start:
   - "ALTER SESSION SET QUERY_TAG = 'dbt_run_{{ invocation_id }}'"
-  - "CREATE SCHEMA IF NOT EXISTS {{ target.database }}.INTERMEDIATE"
+  - "{{ safe_create_target_schema('INTERMEDIATE') }}"
+  - "{{ safe_create_target_schema('MACRO_DEMOS') }}"
   - "{{ safe_elementary_on_run_start() }}"
+
+
 
 # Runs once at the very end of the entire dbt run (after all models finish)
 on-run-end:
@@ -62,7 +65,8 @@ vars:
 
   # Warehouse used by compute-heavy models (demo_30_warehouse_switch)
   # dev/CI default: COMPUTE_WH   |   prod override: COMPUTE_WH_LARGE
-  heavy_model_warehouse: 'DBT_WH'
+  heavy_model_warehouse: 'COMPUTE_WH'
+
 
   # Demo toggles for governance demos in models/macro_demos
   # demo_35_schema_drift_append_new_columns: set to 'add_new_column' to append a new
@@ -274,19 +278,13 @@ models:
       +materialized: view
       +schema: macro_demos
       +tags: ['macro_demo']
-    feature_test:
-      +enabled: false
-      +schema: feature_test
-      +tags: ['feature_test']
-
-
 
   # Pin Elementary models to the elementary schema so hooks write there too.
   # Without this dbt-fusion defaults to the target schema (DBT_BATCH_DEV).
   elementary:
     +schema: elementary
 
-  # dbt_project_evaluator internal models incompatible with dbt-fusion (trailing comma SQL)
+  # Disable dbt_project_evaluator package models in this project.
   dbt_project_evaluator:
     +enabled: false
 

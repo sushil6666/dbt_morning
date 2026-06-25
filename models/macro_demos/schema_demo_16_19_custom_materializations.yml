@@ -36,20 +36,20 @@ models:
     columns:
       - name: ticket_id
         description: Primary key — uniquely identifies each visit ticket
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: customer_id
         description: Foreign key to the customer dimension
-        tests:
+        data_tests:
           - not_null
       - name: visit_date
         description: Date of the park visit
-        tests:
+        data_tests:
           - not_null
       - name: ticket_type
         description: Type of ticket purchased
-        tests:
+        data_tests:
           - not_null
       - name: ticket_price
         description: Face value of the ticket
@@ -85,16 +85,16 @@ models:
     columns:
       - name: transaction_id
         description: Unique identifier for each sales transaction
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: customer_id
         description: Foreign key to the customer dimension
-        tests:
+        data_tests:
           - not_null
       - name: visit_date
         description: Date of the transaction
-        tests:
+        data_tests:
           - not_null
       - name: category
         description: Product category (food, merchandise, etc.)

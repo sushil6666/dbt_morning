@@ -20,7 +20,7 @@ models:
         description: >
           Integer primary key for a haunted house. Sourced from `raw_rides.ride_id`
           cast to integer. Use for joins from ticket and feedback models.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -28,7 +28,7 @@ models:
         description: >
           Display name of the haunted house, sourced from `raw_rides.ride_name`.
           Treated as a business key — should be unique within the haunted house set.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -37,12 +37,12 @@ models:
           Maximum number of visitors the haunted house can process per hour, sourced
           from `raw_rides.capacity_per_hour` cast to integer. Used for utilisation
           calculations in profitability analytics.
-        tests:
+        data_tests:
           - not_null
 
       - name: fear_level
         description: "{{ doc('fear_level_mapping') }}"
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -70,7 +70,7 @@ models:
         description: >
           Natural primary key for the ticket record, sourced from `raw_tickets.ticket_id`.
           Varchar. Unique — each ticket is assigned to exactly one haunted house.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -78,7 +78,7 @@ models:
         description: >
           Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
           visiting customer.
-        tests:
+        data_tests:
           - not_null
 
       - name: haunted_house_id
@@ -86,7 +86,7 @@ models:
           Foreign key to `stg_external_haunted__haunted_houses.haunted_house_id`.
           Assigned deterministically by round-robin distribution — not recorded at
           point of sale. See model description for the assignment formula.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
@@ -99,7 +99,7 @@ models:
           Amount the customer paid for the ticket in USD, sourced from
           `raw_tickets.final_price`, cast to `numeric(10,2)`. This is the revenue
           measure for haunted house ticket analytics.
-        tests:
+        data_tests:
           - not_null
 
       - name: created_at

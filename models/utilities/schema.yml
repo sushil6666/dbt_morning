@@ -27,7 +27,7 @@ models:
         description: >
           Calendar date. Primary key of this dimension. All fact tables join here.
           Data type: DATE.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -35,51 +35,51 @@ models:
         description: >
           Four-digit calendar year (e.g. 2024). Alias of `year_number` — both columns
           carry the same value.
-        tests:
+        data_tests:
           - not_null
 
       - name: year_number
         description: >
           Four-digit calendar year (e.g. 2024). Duplicate of `year` — included for
           naming consistency with other date dimension conventions.
-        tests:
+        data_tests:
           - not_null
 
       - name: month_number
         description: >
           Calendar month as an integer (1 = January, 12 = December).
-        tests:
+        data_tests:
           - not_null
 
       - name: month_name
         description: >
           Calendar month as a short name (e.g. 'Jan', 'Oct'). Sourced from Snowflake's
           `MONTHNAME()` function — format is the three-letter abbreviation.
-        tests:
+        data_tests:
           - not_null
 
       - name: day_number
         description: Day of the month as an integer (1–31).
-        tests:
+        data_tests:
           - not_null
 
       - name: day_of_week_number
         description: >
           Day of the week as an integer. Snowflake convention: 0 = Sunday, 6 = Saturday.
           Used internally for `is_weekend` calculation.
-        tests:
+        data_tests:
           - not_null
 
       - name: day_of_week
         description: >
           Day of the week as a short name (e.g. 'Mon', 'Sun'). Sourced from Snowflake's
           `DAYNAME()` function — three-letter abbreviation.
-        tests:
+        data_tests:
           - not_null
 
       - name: quarter
         description: Calendar quarter as an integer (1–4).
-        tests:
+        data_tests:
           - not_null
 
       - name: is_weekend
@@ -87,7 +87,7 @@ models:
           Boolean. TRUE for Saturday (`day_of_week_number = 6`) and Sunday
           (`day_of_week_number = 0`). Weekend days typically see higher visit volumes
           — use this flag for weekend vs. weekday analysis.
-        tests:
+        data_tests:
           - not_null
 
       - name: is_halloween
@@ -95,7 +95,7 @@ models:
           Boolean. TRUE only when the date is October 31 (any year). Used as a flag for
           the peak Halloween event day. For the full Halloween period, use
           `business_season = 'Halloween Season'` instead.
-        tests:
+        data_tests:
           - not_null
 
       - name: days_to_halloween
@@ -109,12 +109,12 @@ models:
           Used in `agg_halloween_spending` to bucket visits by proximity to Halloween.
           Note: for dates in Nov–Dec, the reference is Oct 31 of the same year, so
           post-Halloween values in November are small negatives.
-        tests:
+        data_tests:
           - not_null
 
       - name: business_season
         description: "{{ doc('business_season_definition') }}"
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -142,6 +142,6 @@ models:
           Calendar date. Primary key. Range matches `dim_dates` (2020-01-01 to 2026-12-31
           by default). Required by MetricFlow as the time spine anchor for all metrics.
         granularity: day
-        tests:
+        data_tests:
           - unique
           - not_null

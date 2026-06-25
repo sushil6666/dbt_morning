@@ -22,7 +22,7 @@ models:
         description: >
           Natural primary key for the customer account, sourced from `raw_customers.customer_id`.
           Varchar. Stable across refreshes — use for joins to all downstream models.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -30,14 +30,14 @@ models:
         description: >
           Customer's given name as entered at registration. Not normalised — may contain
           mixed casing. For display purposes, apply INITCAP in the BI layer.
-        tests:
+        data_tests:
           - not_null
 
       - name: last_name
         description: >
           Customer's family name as entered at registration. Not normalised — may contain
           mixed casing. For display purposes, apply INITCAP in the BI layer.
-        tests:
+        data_tests:
           - not_null
 
       - name: email
@@ -48,7 +48,7 @@ models:
           deduplication. Must be unique across all active accounts. For aggregate analysis
           that does not require individual identity (e.g. email domain breakdown), use
           a derived domain column in downstream marts.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -86,7 +86,7 @@ models:
           `DATEDIFF('year', date_of_birth, CURRENT_DATE())`. Recalculated on every refresh,
           so this value changes when a customer has a birthday. Do not use this column for
           point-in-time historical analysis — join to a snapshot instead.
-        tests:
+        data_tests:
           - not_null
 
       - name: gender
@@ -101,7 +101,7 @@ models:
 
           This flag is the primary VIP filter used across analytics and segmentation models.
           For the full membership tier, see `raw_customers.membership_type` in the source.
-        tests:
+        data_tests:
           - not_null
 
       - name: marketing_opt_in
@@ -122,26 +122,26 @@ models:
           | all others      | 1 (low)              |
 
           This is an approximation — no direct scare preference data is captured in the source.
-        tests:
+        data_tests:
           - not_null
 
       - name: loyalty_points
         description: "{{ doc('loyalty_points_derivation') }}"
-        tests:
+        data_tests:
           - not_null
 
       - name: registration_date
         description: >
           Date the customer account was first created, cast from `created_at::date`.
           Used for cohort analysis and lifecycle stage calculations downstream.
-        tests:
+        data_tests:
           - not_null
 
       - name: created_at
         description: >
           Timestamp when the customer account was created in the source system.
           Cast to `timestamp` from the raw `created_at` field. UTC.
-        tests:
+        data_tests:
           - not_null
 
       - name: updated_at

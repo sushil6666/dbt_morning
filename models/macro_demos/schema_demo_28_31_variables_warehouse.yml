@@ -43,16 +43,16 @@ models:
     columns:
       - name: customer_id
         description: Customer identifier. FK to dim_customers.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: visit_count
         description: Number of visits within the lookback window.
-        tests:
+        data_tests:
           - not_null
       - name: total_spend
         description: Sum of total_visit_spend within the window.
-        tests:
+        data_tests:
           - not_null
       - name: avg_spend_per_visit
         description: Mean spend per visit within the window, rounded to 2dp.
@@ -60,17 +60,17 @@ models:
         description: Mean satisfaction rating within the window. NULL when no ratings exist.
       - name: first_visit_in_window
         description: Earliest visit_date within the active lookback window.
-        tests:
+        data_tests:
           - not_null
       - name: last_visit_in_window
         description: Most recent visit_date within the active lookback window.
-        tests:
+        data_tests:
           - not_null
       - name: window_days
         description: >
           The lookback_days var value active when the model was built.
           Stamped on every row for lineage transparency.
-        tests:
+        data_tests:
           - not_null
 
 
@@ -97,34 +97,34 @@ models:
     columns:
       - name: customer_id
         description: Customer identifier. FK to dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: visit_date
         description: Date of the park visit.
-        tests:
+        data_tests:
           - not_null
       - name: ticket_type
         description: Ticket product used for this visit.
       - name: total_visit_spend
         description: Total spend (ticket + in-park) for the visit. Never NULL in this model (filtered).
-        tests:
+        data_tests:
           - not_null
       - name: avg_rating
         description: Satisfaction rating for the visit. Nullable.
       - name: spend_tier
         description: High / Mid / Low bucket based on total_visit_spend vs the active thresholds.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['High', 'Mid', 'Low']
       - name: tier_high_threshold
         description: Active value of var('spend_tier_high') when the model ran.
-        tests:
+        data_tests:
           - not_null
       - name: tier_mid_threshold
         description: Active value of var('spend_tier_mid') when the model ran.
-        tests:
+        data_tests:
           - not_null
 
 
@@ -146,27 +146,32 @@ models:
       spend_vs_ticket_avg exposes the delta between a visit's spend and the
       mean for its ticket type — useful for outlier detection.
 
+      This demo is materialized as a view in this environment so the warehouse
+      switching pattern stays demonstrable without relying on the failing table
+      materialization path.
+
       Override warehouse: dbt run --vars '{"heavy_model_warehouse": "COMPUTE_WH_LARGE"}' \
                                   --select demo_30_warehouse_switch
     config:
-      materialized: table
+      materialized: view
       tags: ['macro_demo', 'demo_30', 'warehouse']
+
     columns:
       - name: customer_id
         description: Customer identifier.
-        tests:
+        data_tests:
           - not_null
       - name: ticket_type
         description: Ticket product for this visit.
-        tests:
+        data_tests:
           - not_null
       - name: visit_date
         description: Date of the park visit.
-        tests:
+        data_tests:
           - not_null
       - name: total_visit_spend
         description: Total visit spend. Never NULL (filtered in source CTE).
-        tests:
+        data_tests:
           - not_null
       - name: avg_rating
         description: Satisfaction rating. Nullable.
@@ -174,26 +179,26 @@ models:
         description: >
           Cumulative total_visit_spend for the customer, ordered by visit_date
           from earliest to current row (unbounded preceding → current row).
-        tests:
+        data_tests:
           - not_null
       - name: spend_rank_in_ticket_type
         description: >
           dense_rank() of this visit's total_visit_spend within its ticket_type
           partition. Rank 1 = highest spender in that ticket category.
-        tests:
+        data_tests:
           - not_null
       - name: avg_spend_for_ticket_type
         description: >
           Partition average of total_visit_spend across all visits with the same
           ticket_type. Rounded to 2 decimal places.
-        tests:
+        data_tests:
           - not_null
       - name: spend_vs_ticket_avg
         description: >
           total_visit_spend minus avg_spend_for_ticket_type.
           Positive = above average for this ticket type.
           Negative = below average. Useful for outlier detection.
-        tests:
+        data_tests:
           - not_null
 
 
@@ -223,23 +228,23 @@ models:
     columns:
       - name: customer_id
         description: Customer identifier. FK to dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: loyalty_tier
         description: Gold / Silver / Bronze tier from dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: customer_value_segment
         description: High Value / Mid Value / Standard from dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: age_group
         description: Demographic cohort from dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: visit_date
         description: Date of the park visit.
-        tests:
+        data_tests:
           - not_null
       - name: ticket_type
         description: Ticket product used for the visit.

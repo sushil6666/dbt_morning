@@ -56,36 +56,36 @@ models:
     columns:
       - name: customer_id
         description: Customer identifier. FK to dim_customers.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: loyalty_tier
         description: Gold / Silver / Bronze from dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: customer_value_segment
         description: High Value / Mid Value / Standard from dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: is_vip_member
         description: Boolean VIP flag from dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: registration_date
         description: Date the customer account was first created.
-        tests:
+        data_tests:
           - not_null
       - name: total_visits
         description: Lifetime count of park visits recorded in fct_visits.
-        tests:
+        data_tests:
           - not_null
       - name: first_visit_date
         description: Earliest visit_date in fct_visits for this customer.
-        tests:
+        data_tests:
           - not_null
       - name: last_visit_date
         description: Most recent visit_date in fct_visits for this customer.
-        tests:
+        data_tests:
           - not_null
       - name: active_days
         description: >
@@ -93,7 +93,7 @@ models:
           Use to distinguish one-time visitors from returning guests.
       - name: lifetime_spend
         description: Sum of total_visit_spend across all visits. Primary LTV measure.
-        tests:
+        data_tests:
           - not_null
       - name: avg_spend_per_visit
         description: Mean total_visit_spend per visit. Rounded to 2dp.
@@ -109,7 +109,7 @@ models:
           Spend-based LTV bucket:
           Platinum (>= $500), Gold (>= $200), Silver (>= $50), Bronze (< $50).
           Used for CRM audience segmentation and marketing spend allocation.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -119,7 +119,7 @@ models:
           Timestamp (TIMESTAMP_NTZ, UTC) when this row was written by dbt.
           Refreshed on every full rebuild. Use to confirm data freshness
           without querying the audit log.
-        tests:
+        data_tests:
           - not_null
       - name: dbt_run_id
         description: >
@@ -128,5 +128,5 @@ models:
           elapsed_seconds, rows_loaded, and started_at for this build.
           Also matches PARSE_JSON(QUERY_TAG):run_id in QUERY_HISTORY when
           the apply_query_tag macro is active.
-        tests:
+        data_tests:
           - not_null

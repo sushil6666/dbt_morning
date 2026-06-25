@@ -1,9 +1,10 @@
 {{ config(
-    materialized='table',
+    materialized='view',
     tags=['macro_demo', 'demo_30', 'warehouse'],
-    pre_hook="{{ switch_warehouse(var('heavy_model_warehouse', 'DBT_WH')) }}",
+    pre_hook="{{ switch_warehouse(var('heavy_model_warehouse', 'COMPUTE_WH')) }}",
     post_hook="{{ reset_warehouse() }}"
 ) }}
+
 
 /*
   demo_30_warehouse_switch
@@ -24,11 +25,11 @@
       3. post_hook → USE WAREHOUSE COMPUTE_WH        (profile default)
 
   Override warehouse from CLI:
-    dbt run --vars '{"heavy_model_warehouse": "DBT_WH_LARGE"}' \
+    dbt run --vars '{"heavy_model_warehouse": "COMPUTE_WH_LARGE"}' \
             --select demo_30_warehouse_switch
 
   WHY VAR NOT HARDCODE:
-    dev uses DBT_WH, prod can use a larger warehouse.
+    dev uses COMPUTE_WH, prod can use a larger warehouse.
     A var keeps the model portable across environments without profiles
     carrying model-specific warehouse logic.
 

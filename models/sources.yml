@@ -27,43 +27,25 @@ sources:
     database: "{{ target.database }}"
     schema: raw
     loader: dbt_seed
-    # tags: ['raw', 'seed', 'bronze']
-    # meta:
-    #   owner: data_engineering
-    #   team: platform
-    #   tier: bronze
-    #   data_classification: internal
-    #   loader: dbt_seed
 
     tables:
-
       - name: raw_customers
         description: >
           Guest master records. Each row represents one customer account.
           Contains PII — handle with care.
-        # tags: ['customers', 'pii', 'seed']
-        # meta:
-        #   contains_pii: true
-        #   data_classification: confidential
-        #   steward: guest_services
-        #   primary_key: customer_id
-        # loaded_at_field: created_at
-        # freshness:
-        #   warn_after: {count: 7, period: day}
-        #   error_after: {count: 30, period: day}
         columns:
           - name: customer_id
             description: Surrogate primary key for a customer account
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: first_name
             description: Customer given name
-            tests:
+            data_tests:
               - not_null
           - name: last_name
             description: Customer family name
-            tests:
+            data_tests:
               - not_null
           - name: email
             description: >
@@ -73,10 +55,10 @@ sources:
               Lowercased in the staging layer (`stg_customer_data__customers`) for
               consistent deduplication. Duplicates are stored for investigation via
               the `store_failures` config.
-            tests:
+            data_tests:
               - unique:
                   config:
-                    store_failures: true   # business key — duplicates need investigation
+                    store_failures: true
               - not_null
           - name: phone
             description: >
@@ -87,111 +69,78 @@ sources:
             description: Customer date of birth (YYYY-MM-DD)
           - name: membership_type
             description: Membership tier assigned to the customer
-            tests:
+            data_tests:
               - not_null
               - accepted_values:
                   arguments:
                     values: ['standard', 'silver', 'gold', 'platinum', 'vip']
                   config:
-                    store_failures: true   # inspect which unexpected tiers arrive
+                    store_failures: true
                     severity: warn
           - name: signup_channel
             description: Channel through which the customer registered
-            tests:
+            data_tests:
               - not_null
               - accepted_values:
                   arguments:
                     values: ['online', 'in_park', 'phone', 'referral']
                   config:
-                    store_failures: true   # inspect unknown registration channels
+                    store_failures: true
                     severity: warn
           - name: created_at
             description: Timestamp when the customer account was first created
-            tests:
+            data_tests:
               - not_null
           - name: is_active
             description: Boolean flag indicating whether the account is currently active
-            tests:
+            data_tests:
               - not_null
 
       - name: raw_rides
         description: >
           Master catalog of all rides and attractions in the park.
           Each row represents one physical ride asset.
-        # tags: ['park_assets', 'rides', 'seed']
-        # meta:
-        #   contains_pii: false
-        #   data_classification: internal
-        #   steward: operations
-        #   primary_key: ride_id
-        #   note: No load timestamp available — freshness not applicable for seed data.
-        # freshness: null   # explicitly disabled — no load timestamp column
         columns:
           - name: ride_id
             description: Surrogate primary key for a ride
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: ride_name
             description: Display name of the ride or attraction
-            tests:
-              - unique:
-                  config:
-                    store_failures: true   # natural key — duplicate names need investigation
+            data_tests:
+              - unique
               - not_null
           - name: ride_type
-            description: >
-              Physical category of the ride
-              (roller_coaster, dark_ride, drop_tower, water_ride, carousel, kiddie_ride)
-            tests:
+            description: Physical category of the ride
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['roller_coaster', 'dark_ride', 'drop_tower',
-                             'water_ride', 'carousel', 'kiddie_ride']
-                  config:
-                    store_failures: true   # inspect rides with unrecognised type
           - name: min_height_cm
             description: Minimum rider height in centimetres. 0 means no restriction.
           - name: thrill_level
             description: Subjective thrill rating assigned by operations
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['low', 'medium', 'high', 'extreme']
-                  config:
-                    store_failures: true   # inspect rides with unrecognised thrill level
           - name: capacity_per_hour
             description: Maximum number of riders the attraction can process per hour
-            tests:
+            data_tests:
               - not_null
           - name: zone
             description: Park zone where the ride is located
-            tests:
+            data_tests:
               - not_null
           - name: is_haunted
             description: Whether the ride belongs to the haunted/horror category
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['true', 'false']
-                  config:
-                    store_failures: true   # inspect rides with unexpected is_haunted value
           - name: opened_date
             description: Date the ride first opened to the public (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: status
             description: Current operational status of the ride
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['active', 'maintenance', 'closed']
-                  config:
-                    store_failures: true   # inspect rides with unrecognised operational status
           - name: avg_wait_minutes
             description: Rolling average queue wait time in minutes
 
@@ -199,172 +148,111 @@ sources:
         description: >
           Ticket purchase records — one row per ticket transaction.
           Links a customer to a specific visit date and ticket product.
-        # tags: ['sales', 'tickets', 'seed']
-        # meta:
-        #   contains_pii: false
-        #   data_classification: internal
-        #   steward: revenue
-        #   primary_key: ticket_id
-        # loaded_at_field: purchase_date      # not yet supported in dbt-fusion
-        # freshness:                           # not yet supported in dbt-fusion
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: ticket_id
             description: Surrogate primary key for a ticket purchase
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: customer_id
             description: Foreign key to raw_customers
-            tests:
+            data_tests:
               - not_null
-              - relationships:
-                  arguments:
-                    to: source('raw', 'raw_customers')
-                    field: customer_id
-                  config:
-                    store_failures: true   # inspect ticket_ids whose customer_id has no match in raw_customers
           - name: ticket_type
             description: Product type purchased
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['day_pass', 'weekend_pass', 'annual_pass', 'group_pass']
-                  config:
-                    store_failures: true   # inspect tickets with unrecognised product type
           - name: purchase_date
             description: Date the ticket was purchased (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: visit_date
             description: Date the ticket is valid for park entry (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: purchase_channel
             description: Channel through which the ticket was purchased
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['online', 'in_park', 'kiosk', 'phone']
-                  config:
-                    store_failures: true   # inspect tickets arriving via unknown channels
           - name: base_price
             description: >
               {{ doc('ticket_price_definition') }}
 
               Face value of the ticket before any discount is applied.
-            tests:
+            data_tests:
               - not_null
           - name: discount_amount
             description: >
               {{ doc('ticket_price_definition') }}
 
-              Monetary discount applied at purchase. 0.00 when no promo code or
-              promotional offer was used. Never negative.
-            tests:
+              Monetary discount applied at purchase.
+            data_tests:
               - not_null
           - name: final_price
             description: >
               {{ doc('ticket_price_definition') }}
 
-              Amount the customer actually paid: `base_price - discount_amount`.
-              This is the **primary revenue measure** for all ticket-based reporting.
-              Always non-negative.
-            tests:
+              Amount the customer actually paid.
+            data_tests:
               - not_null
           - name: promo_code
-            description: >
-              Promotional or coupon code applied at purchase. NULL when none was used.
-              Empty strings are coerced to NULL in the staging layer via
-              `NULLIF(promo_code, '')`.
-
+            description: Promotional or coupon code applied at purchase.
 
       - name: raw_sales_transactions
         description: >
           In-park point-of-sale transactions for food and merchandise.
           One row per line item sold during a guest visit.
-        # tags: ['sales', 'transactions', 'seed']
-        # meta:
-        #   contains_pii: false
-        #   data_classification: internal
-        #   steward: revenue
-        #   primary_key: transaction_id
-        # loaded_at_field: visit_date
-        # freshness:
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: transaction_id
             description: Surrogate primary key for a sales transaction
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: customer_id
             description: Foreign key to raw_customers
-            tests:
+            data_tests:
               - not_null
           - name: visit_date
             description: Date of the visit when the purchase was made (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: category
             description: High-level product category
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['food', 'merchandise', 'game', 'photo']
-                  config:
-                    store_failures: true   # inspect transactions with unrecognised category
           - name: item_name
             description: Name of the product or item sold
-            tests:
+            data_tests:
               - not_null
           - name: quantity
             description: Number of units purchased in this line item
-            tests:
+            data_tests:
               - not_null
           - name: unit_price
             description: Price per unit at time of sale
-            tests:
+            data_tests:
               - not_null
           - name: total_amount
             description: quantity multiplied by unit_price
-            tests:
+            data_tests:
               - not_null
           - name: payment_method
             description: Method used to complete the transaction
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['credit_card', 'cash', 'kiosk', 'mobile']
-                  config:
-                    store_failures: true   # inspect transactions with unrecognised payment method
           - name: location
             description: Name of the outlet or stand where the sale occurred
-            tests:
+            data_tests:
               - not_null
 
       - name: raw_employees
         description: >
           Employee roster including department, role, and compensation data.
           Contains PII — handle with care.
-        # tags: ['hr', 'employees', 'pii', 'seed']
-        # meta:
-        #   contains_pii: true
-        #   data_classification: confidential
-        #   steward: hr
-        #   primary_key: employee_id
-        #   note: No load timestamp available — freshness not applicable for seed data.
-        # freshness: null   # explicitly disabled — no load timestamp column
         columns:
           - name: employee_id
             description: Surrogate primary key for an employee record
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: first_name
@@ -372,49 +260,36 @@ sources:
               {{ doc('pii_warning') }}
 
               Employee's given name.
-            tests:
+            data_tests:
               - not_null
           - name: last_name
             description: >
               {{ doc('pii_warning') }}
 
               Employee's family name.
-            tests:
+            data_tests:
               - not_null
           - name: department
             description: Business unit the employee belongs to
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['operations', 'food_beverage', 'merchandise',
-                             'security', 'guest_services', 'maintenance']
-                  config:
-                    store_failures: true   # inspect employees assigned to unknown departments
           - name: role
             description: Job title within the department
-            tests:
+            data_tests:
               - not_null
           - name: hire_date
             description: Date the employee was hired (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: hourly_rate
-            description: >
-              {{ doc('pii_warning') }}
-
-              Current hourly compensation rate in USD. Sensitive HR data — restrict
-              to HR and finance consumers. Used in `dim_employees` to derive
-              `estimated_annual_salary` (hourly_rate × 40 × 52).
-            tests:
+            description: Current hourly compensation rate in USD.
+            data_tests:
               - not_null
           - name: manager_id
-            description: >
-              Foreign key to the employee's direct manager in raw_employees.
-              Null for top-level managers.
+            description: Foreign key to the employee's direct manager.
           - name: is_active
             description: Whether the employee is currently employed
-            tests:
+            data_tests:
               - not_null
           - name: zone_assignment
             description: Primary park zone the employee is assigned to
@@ -423,420 +298,239 @@ sources:
         description: >
           Guest satisfaction feedback submitted after visits.
           One row per feedback submission.
-        # tags: ['feedback', 'seed']
-        # meta:
-        #   contains_pii: false
-        #   data_classification: internal
-        #   steward: guest_services
-        #   primary_key: feedback_id
-        # loaded_at_field: submitted_at
-        # freshness:
-        #   warn_after: {count: 3, period: day}
-        #   error_after: {count: 7, period: day}
-        tests:
+        data_tests:
           - dbt_utils.unique_combination_of_columns:
               arguments:
                 combination_of_columns: ['customer_id', 'visit_date', 'category']
         columns:
           - name: feedback_id
             description: Surrogate primary key for a feedback record
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: customer_id
             description: Foreign key to raw_customers
-            tests:
+            data_tests:
               - not_null
           - name: visit_date
             description: Date of the visit the feedback refers to (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: ride_id
-            description: >
-              Foreign key to raw_rides if the feedback is ride-specific.
-              Null for general park feedback.
+            description: Foreign key to raw_rides if the feedback is ride-specific.
           - name: rating
-            description: Overall satisfaction score from 1 (worst) to 5 (best)
-            tests:
+            description: Overall satisfaction score from 1 to 5
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['1', '2', '3', '4', '5']
-                  config:
-                    store_failures: true   # inspect feedback records with out-of-range ratings
           - name: category
             description: Topic area the feedback relates to
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['ride', 'food', 'general', 'wait_times', 'staff', 'cleanliness']
-                  config:
-                    store_failures: true   # inspect feedback filed under unknown categories
           - name: sentiment
             description: Pre-classified sentiment label for the feedback comment
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['positive', 'neutral', 'negative']
-                  config:
-                    store_failures: true   # inspect feedback with unrecognised sentiment label
           - name: comments
             description: Free-text comment submitted by the guest
           - name: submitted_at
             description: Timestamp when the feedback was submitted
-            tests:
+            data_tests:
               - not_null
 
       - name: raw_haunted_events
         description: >
-          Seasonal and special haunted events run in partnership with
-          external organisations. One row per event booking.
-        # tags: ['external', 'haunted', 'events', 'seed']
-        # meta:
-        #   contains_pii: false
-        #   data_classification: internal
-        #   steward: operations
-        #   primary_key: event_id
-        #   note: No load timestamp available — freshness not applicable for seed data.
-        # freshness: null   # explicitly disabled — no load timestamp column
+          Seasonal and special haunted events run in partnership with external organisations.
         columns:
           - name: event_id
             description: Surrogate primary key for a haunted event
-            tests:
+            data_tests:
               - unique
               - not_null
           - name: event_name
             description: Display name of the event
-            tests:
-              - unique:
-                  config:
-                    store_failures: true   # natural key — duplicate event names need investigation
+            data_tests:
+              - unique
               - not_null
           - name: event_start_date
             description: First day the event runs (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: event_end_date
             description: Last day the event runs (YYYY-MM-DD)
-            tests:
+            data_tests:
               - not_null
           - name: event_type
             description: Classification of the event cadence
-            tests:
+            data_tests:
               - not_null
-              - accepted_values:
-                  arguments:
-                    values: ['seasonal', 'special']
-                  config:
-                    store_failures: true   # inspect events with unrecognised cadence type
           - name: external_partner
             description: Name of the external organisation delivering the event
-            tests:
+            data_tests:
               - not_null
           - name: tickets_allocated
             description: Total number of tickets made available for the event
-            tests:
+            data_tests:
               - not_null
           - name: tickets_sold
             description: Number of tickets that were actually purchased
-            tests:
+            data_tests:
               - not_null
           - name: revenue
             description: Total gross revenue generated by the event in USD
-            tests:
+            data_tests:
               - not_null
           - name: description
             description: Short human-readable summary of the event
-
-  # ── Domain-specific sources (alias views over raw layer) ─────────────────────
 
   - name: customer_data
     description: Customer master records — mapped to RAW.raw_customers
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['customers', 'pii', 'bronze']
-    # meta:
-    #   owner: guest_services
-    #   team: guest_experience
-    #   tier: bronze
-    #   contains_pii: true
-    #   data_classification: confidential
     tables:
       - name: customers
         identifier: raw_customers
         description: Guest master records from raw_customers
-        # tags: ['customers', 'pii']
-        # meta:
-        #   primary_key: customer_id
-        #   contains_pii: true
-        # loaded_at_field: created_at
-        # freshness:
-        #   warn_after: {count: 7, period: day}
-        #   error_after: {count: 30, period: day}
         columns:
           - name: customer_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: first_name
-            tests: [not_null]
+            data_tests: [not_null]
           - name: last_name
-            tests: [not_null]
+            data_tests: [not_null]
           - name: email
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
 
   - name: park_assets
     description: Park asset catalog including rides and ticket products
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['park_assets', 'bronze']
-    # meta:
-    #   owner: operations
-    #   team: operations
-    #   tier: bronze
-    #   contains_pii: false
-    #   data_classification: internal
     tables:
       - name: rides
         identifier: raw_rides
         description: Master catalog of all rides and attractions
-        # tags: ['rides', 'park_assets']
-        # meta:
-        #   primary_key: ride_id
-        #   contains_pii: false
-        # freshness: null
         columns:
           - name: ride_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: ride_name
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
       - name: ticket_types
         identifier: raw_tickets
         description: Ticket types derived from distinct ticket_type values in raw_tickets
-        # tags: ['tickets', 'sales']
-        # meta:
-        #   primary_key: ticket_id
-        #   contains_pii: false
-        # loaded_at_field: purchase_date
-        # freshness:
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: ticket_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: base_price
-            tests: [not_null]
+            data_tests: [not_null]
 
   - name: sales
     description: Ticket sales transactions split by purchase channel
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['sales', 'tickets', 'bronze']
-    # meta:
-    #   owner: revenue
-    #   team: revenue
-    #   tier: bronze
-    #   contains_pii: false
-    #   data_classification: internal
     tables:
       - name: ticket_sales_online
         identifier: raw_tickets
         description: Online channel purchases filtered from raw_tickets
-        # tags: ['sales', 'online', 'tickets']
-        # meta:
-        #   primary_key: ticket_id
-        #   channel: online
-        # loaded_at_field: purchase_date
-        # freshness:
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: ticket_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: customer_id
-            tests: [not_null]
+            data_tests: [not_null]
           - name: visit_date
-            tests: [not_null]
+            data_tests: [not_null]
       - name: ticket_sales_physical
         identifier: raw_tickets
         description: In-person purchases filtered from raw_tickets
-        # tags: ['sales', 'in_park', 'tickets']
-        # meta:
-        #   primary_key: ticket_id
-        #   channel: in_park
-        # loaded_at_field: purchase_date
-        # freshness:
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: ticket_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: customer_id
-            tests: [not_null]
+            data_tests: [not_null]
           - name: visit_date
-            tests: [not_null]
+            data_tests: [not_null]
 
   - name: feedback
     description: Visitor feedback — mapped to RAW.raw_feedback
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['feedback', 'bronze']
-    # meta:
-    #   owner: guest_services
-    #   team: guest_experience
-    #   tier: bronze
-    #   contains_pii: false
-    #   data_classification: internal
     tables:
       - name: visitor_feedback
         identifier: raw_feedback
         description: Post-visit feedback from raw_feedback
-        # tags: ['feedback', 'ratings']
-        # meta:
-        #   primary_key: feedback_id
-        # loaded_at_field: submitted_at
-        # freshness:
-        #   warn_after: {count: 3, period: day}
-        #   error_after: {count: 7, period: day}
         columns:
           - name: feedback_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: visit_date
-            tests: [not_null]
+            data_tests: [not_null]
 
   - name: external_haunted
     description: Haunted house data — mapped to raw_rides and raw_tickets
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['external', 'haunted', 'bronze']
-    # meta:
-    #   owner: operations
-    #   team: operations
-    #   tier: bronze
-    #   contains_pii: false
-    #   data_classification: internal
     tables:
       - name: haunted_houses
         identifier: raw_rides
         description: Haunted house reference data mapped from raw_rides
-        # tags: ['haunted', 'rides']
-        # meta:
-        #   primary_key: ride_id
-        #   filter: is_haunted = true
-        # freshness: null
         columns:
           - name: ride_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: ride_name
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
       - name: haunted_house_tickets
         identifier: raw_tickets
         description: Haunted house tickets mapped from raw_tickets
-        # tags: ['haunted', 'tickets', 'sales']
-        # meta:
-        #   primary_key: ticket_id
-        # loaded_at_field: purchase_date
-        # freshness:
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: ticket_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: customer_id
-            tests: [not_null]
+            data_tests: [not_null]
           - name: visit_date
-            tests: [not_null]
+            data_tests: [not_null]
 
   - name: employees
     description: Employee roster — mapped to RAW.raw_employees
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['hr', 'employees', 'pii', 'bronze']
-    # meta:
-    #   owner: hr
-    #   team: hr
-    #   tier: bronze
-    #   contains_pii: true
-    #   data_classification: confidential
     tables:
       - name: employees
         identifier: raw_employees
         description: Employee records from raw_employees
-        # tags: ['employees', 'pii', 'hr']
-        # meta:
-        #   primary_key: employee_id
-        #   contains_pii: true
-        #   note: No load timestamp — freshness check not applicable.
-        # freshness: null
         columns:
           - name: employee_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: first_name
-            tests: [not_null]
+            data_tests: [not_null]
           - name: last_name
-            tests: [not_null]
+            data_tests: [not_null]
 
   - name: sales_transactions
     description: In-park point-of-sale transactions — mapped to RAW.raw_sales_transactions
     database: "{{ target.database }}"
     schema: RAW
-    # tags: ['sales', 'transactions', 'bronze']
-    # meta:
-    #   owner: revenue
-    #   team: revenue
-    #   tier: bronze
-    #   contains_pii: false
-    #   data_classification: internal
     tables:
       - name: sales_transactions
         identifier: raw_sales_transactions
         description: In-park sales transactions from raw_sales_transactions
-        # tags: ['transactions', 'pos']
-        # meta:
-        #   primary_key: transaction_id
-        # loaded_at_field: visit_date
-        # freshness:
-        #   warn_after: {count: 1, period: day}
-        #   error_after: {count: 3, period: day}
         columns:
           - name: transaction_id
-            tests: [unique, not_null]
+            data_tests: [unique, not_null]
           - name: customer_id
-            tests: [not_null]
+            data_tests: [not_null]
           - name: visit_date
-            tests: [not_null]
-
-  # ── Legacy sources ────────────────────────────────────────────────────────────
+            data_tests: [not_null]
 
   - name: DBT_DEV
     description: Existing Snowflake tables in the dev batch schema
     database: "{{ target.database }}"
     schema: DBT_BATCH_DEV
-    # tags: ['legacy', 'deprecated']
-    # meta:
-    #   owner: data_engineering
-    #   team: platform
-    #   tier: legacy
-    #   data_classification: internal
-    #   note: Legacy source — do not build new models against this source.
     tables:
       - name: first_dbt_model
         description: Legacy first dbt model table
-        # tags: ['legacy']
-        # meta:
-        #   deprecated: true
-        # freshness: null
       - name: raw_orders
         description: Legacy raw orders table
-        # tags: ['legacy', 'orders']
-        # meta:
-        #   deprecated: true
-        #   primary_key: order_id
-        # freshness: null
         columns:
           - name: order_id
             description: Primary key for orders
-            tests:
+            data_tests:
               - unique:
                   config:
                     enabled: false
@@ -845,7 +539,7 @@ sources:
                     enabled: false
           - name: customer_id
             description: Foreign key to customers
-            tests:
+            data_tests:
               - not_null:
                   config:
                     enabled: false
@@ -853,7 +547,7 @@ sources:
             description: Date the order was placed
           - name: order_status
             description: Current status of the order
-            tests:
+            data_tests:
               - accepted_values:
                   arguments:
                     values: ['completed', 'cancelled', 'pending', 'shipped']

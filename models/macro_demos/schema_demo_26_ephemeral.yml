@@ -36,15 +36,15 @@ models:
     columns:
       - name: transaction_id
         description: Source transaction identifier.
-        tests:
+        data_tests:
           - not_null
       - name: customer_id
         description: Foreign key to dim_customers.
-        tests:
+        data_tests:
           - not_null
       - name: visit_date
         description: Date of the park visit.
-        tests:
+        data_tests:
           - not_null
       - name: category
         description: Raw category from the source system.
@@ -64,7 +64,7 @@ models:
         description: >
           Bucketed spend label derived from total_amount.
           low  = < $40  |  mid = $40–$99  |  high = $100+
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
                 arguments:
@@ -73,11 +73,11 @@ models:
         description: >
           Broad revenue bucket mapped from the raw category field.
           One of: Food & Beverage, Merchandise, Ticket, Other.
-        tests:
+        data_tests:
           - not_null
       - name: is_high_value
         description: TRUE when total_amount >= $100, FALSE otherwise.
-        tests:
+        data_tests:
           - not_null
 
   # -------------------------------------------------------------------------
@@ -101,26 +101,26 @@ models:
     columns:
       - name: revenue_category
         description: Broad category (Food & Beverage, Merchandise, Ticket, Other).
-        tests:
+        data_tests:
           - not_null
       - name: spending_tier
         description: Spend bucket — low, mid, or high.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
                 arguments:
                   values: ['low', 'mid', 'high']
       - name: payment_method
         description: Payment method for this group.
-        tests:
+        data_tests:
           - not_null
       - name: transaction_count
         description: Number of transactions in this group.
-        tests:
+        data_tests:
           - not_null
       - name: total_revenue
         description: Sum of total_amount for this group, in USD.
-        tests:
+        data_tests:
           - not_null
       - name: avg_transaction_value
         description: Mean transaction value (total_revenue / transaction_count).
@@ -197,3 +197,4 @@ unit_tests:
   # until dbt-fusion adds full ephemeral-CTE support for unit tests.
   # The consumer's GROUP BY / ROUND / NULLIF logic is low-risk given that
   # the base model's classification logic is covered by the two tests above.
+

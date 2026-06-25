@@ -49,23 +49,23 @@ models:
     columns:
       - name: visit_date
         description: Date of the park visit (aggregation key).
-        tests:
+        data_tests:
           - not_null
       - name: category
         description: Sales category (e.g., Food & Bev, Merchandise, Ticket).
-        tests:
+        data_tests:
           - not_null
       - name: location
         description: Park location where the transaction occurred.
-        tests:
+        data_tests:
           - not_null
       - name: transaction_count
         description: Number of transactions for this date / category / location combination.
-        tests:
+        data_tests:
           - not_null
       - name: total_revenue
         description: Sum of total_amount across all transactions in the group.
-        tests:
+        data_tests:
           - not_null
       - name: avg_transaction_value
         description: Average transaction amount within the group.

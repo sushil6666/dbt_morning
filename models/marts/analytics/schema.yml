@@ -11,652 +11,333 @@ models:
       Dates with no park activity still appear (from the `dim_dates` LEFT JOIN) with
       all revenue and visitor columns coalesced to 0. This enables continuous time-series
       analysis without gaps.
-
-      Revenue streams:
-        - `ticket_revenue`: entry ticket sales (from `int_daily_revenue`)
-        - `in_park_revenue`: POS sales — food, merchandise, games, photos
-        - `food_revenue` / `merch_revenue`: in-park revenue by category
-        - `total_revenue`: ticket + in_park combined
-        - `revenue_per_visitor`: total_revenue ÷ unique_visitors (0 on no-visitor days)
-
-      Note: the date range is hardcoded in the model SQL (`date_day >= '2024-01-01'`).
-      Adjust the filter or parameterise via a dbt variable for multi-year analysis.
-
-      Owner: analytics@themeparkanalytics.com
     columns:
       - name: date_day
         description: >-
           Calendar date. Primary key of this model. Range 2024-01-01 to CURRENT_DATE().
-        tests:
+        data_tests:
           - unique
           - not_null
-
       - name: day_of_week
         description: Day name (e.g. 'Monday', 'Saturday'). From `dim_dates`.
-
       - name: month_name
         description: Month name (e.g. 'January', 'October'). From `dim_dates`.
-
       - name: quarter
         description: Calendar quarter (1–4). From `dim_dates`.
-
       - name: year
         description: Calendar year (e.g. 2024). From `dim_dates`.
-
       - name: is_weekend
         description: Boolean. TRUE for Saturday and Sunday.
-
       - name: ticket_revenue
-        description: >
-          Additive measure. Sum of ticket `final_price` values for visits on this date.
-          0 on days with no ticket purchases.
-        tests:
+        description: Additive measure. Sum of ticket `final_price` values for visits on this date.
+        data_tests:
           - not_null
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
-
       - name: in_park_revenue
-        description: >
-          Additive measure. Sum of all POS `total_amount` values for this date.
-          Includes food, merchandise, games, and photos. 0 on days with no transactions.
-        tests:
+        description: Additive measure. Sum of all POS `total_amount` values for this date.
+        data_tests:
           - not_null
-
       - name: food_revenue
-        description: >
-          Additive measure. Subset of `in_park_revenue` where `category = 'food'`. 0 when
-          no food purchases on this date.
-        tests:
+        description: Additive measure. Subset of `in_park_revenue` where `category = 'food'`.
+        data_tests:
           - not_null
-
       - name: merch_revenue
-        description: >
-          Additive measure. Subset of `in_park_revenue` where `category = 'merchandise'`.
-          0 when no merchandise purchases on this date.
-        tests:
+        description: Additive measure. Subset of `in_park_revenue` where `category = 'merchandise'`.
+        data_tests:
           - not_null
-
       - name: total_revenue
-        description: >
-          Additive measure. `ticket_revenue + in_park_revenue`. Top-line daily revenue KPI.
-          0 on zero-activity days.
-        tests:
+        description: Additive measure. `ticket_revenue + in_park_revenue`.
+        data_tests:
           - not_null
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
-
       - name: unique_visitors
-        description: >
-          Count of distinct customers who purchased a ticket for this visit date.
-          0 on days with no ticket sales. Note: walk-in without a pre-purchased ticket
-          is not captured in the current source.
-        tests:
+        description: Count of distinct customers who purchased a ticket for this visit date.
+        data_tests:
           - not_null
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
-
       - name: tickets_sold
-        description: >
-          Total number of ticket records for this visit date. May exceed `unique_visitors`
-          if any customer purchased multiple tickets for the same day.
-        tests:
+        description: Total number of ticket records for this visit date.
+        data_tests:
           - not_null
-
       - name: revenue_per_visitor
-        description: >
-          Non-additive measure. `total_revenue ÷ unique_visitors`, rounded to 2 decimal
-          places. 0 on days with no visitors (guards against division by zero).
-          Do not SUM this column — derive from totals in your BI tool.
-        tests:
+        description: Non-additive measure derived from total_revenue and unique_visitors.
+        data_tests:
           - not_null
-
 
   - name: agg_customer_lifetime_value
-    description: >
-      Customer lifetime value (CLV) aggregated by loyalty tier and customer value segment.
-      One row per (loyalty_tier, customer_value_segment) combination. Grain is the
-      two-column combination.
-
-      Built by joining `dim_customers` to `fct_all_ticket_sales` and aggregating ticket
-      spend per customer, then computing segment-level averages and totals. Customers
-      with no ticket purchases receive 0 for all spend metrics (LEFT JOIN + COALESCE).
-
-      CLV definition used here: `total_segment_revenue ÷ total_customers` — simple
-      average revenue per customer within each segment. This is a backward-looking
-      historic spend figure, not a predictive lifetime value model.
-
-      Owner: analytics@themeparkanalytics.com
+    description: Customer lifetime value aggregated by loyalty tier and customer value segment.
     columns:
       - name: loyalty_tier
-        description: >
-          Customer loyalty tier: 'Gold' (≥ 1000 points), 'Silver' (≥ 500), 'Bronze' (< 500).
-          One of the two grouping dimensions for this aggregate.
-        tests:
+        description: Customer loyalty tier.
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['Gold', 'Silver', 'Bronze']
-
       - name: customer_value_segment
-        description: >
-          Combined value segment: 'High Value', 'Mid Value', 'Standard'.
-          One of the two grouping dimensions for this aggregate.
-        tests:
+        description: Combined value segment.
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['High Value', 'Mid Value', 'Standard']
-
       - name: total_customers
-        description: Count of distinct customers in this tier + segment combination.
-        tests:
+        description: Count of distinct customers in this segment combination.
+        data_tests:
           - not_null
-
       - name: avg_lifetime_spend
-        description: >
-          Non-additive. Average total ticket spend per customer in this segment,
-          rounded to 2 decimal places. Includes customers with 0 spend (never bought tickets).
-        tests:
+        description: Average total ticket spend per customer in this segment.
+        data_tests:
           - not_null
-
       - name: avg_visits
-        description: >
-          Non-additive. Average number of ticket purchases per customer in this segment,
-          rounded to 2 decimal places.
-        tests:
+        description: Average number of ticket purchases per customer in this segment.
+        data_tests:
           - not_null
-
       - name: avg_spend_per_visit
-        description: >
-          Non-additive. Average ticket price per visit per customer in this segment,
-          rounded to 2 decimal places. Computed as customer-level average, then segment average.
-        tests:
+        description: Average ticket price per visit per customer in this segment.
+        data_tests:
           - not_null
-
       - name: total_segment_revenue
-        description: >
-          Additive. Sum of all lifetime ticket spend across all customers in this segment.
-          Safe to SUM across segments to get total ticket revenue.
-        tests:
+        description: Sum of lifetime ticket spend across all customers in this segment.
+        data_tests:
           - not_null
-
       - name: clv
-        description: >
-          Non-additive. Customer Lifetime Value for this segment: `total_segment_revenue ÷
-          total_customers`, rounded to 2 decimal places. NULL when `total_customers = 0`
-          (guarded by NULLIF). Do not SUM — use `total_segment_revenue` and `total_customers`
-          to derive a portfolio CLV.
-        tests:
+        description: Customer Lifetime Value for this segment.
+        data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
 
-
   - name: agg_ride_popularity
-    description: >
-      Ride popularity rankings based on review volume and average visitor rating.
-      One row per ride. Grain is `ride_id` (same as `dim_rides`).
-
-      Built from `dim_rides` with two additional ranking columns:
-        - `review_volume_rank`: RANK() by total_reviews descending (most-reviewed = 1)
-        - `rating_rank`: RANK() by avg_rating descending (highest-rated = 1)
-        - `rating_tier`: categorical label for the avg_rating band
-
-      Use `review_volume_rank` for popularity analysis. Use `rating_rank` for quality
-      analysis. Note that rides with 0 reviews appear with `rating_tier = 'Not Yet Rated'`
-      and `rating_rank` sorted last (NULLS LAST on avg_rating = 0).
-
-      Owner: analytics@themeparkanalytics.com
+    description: Ride popularity rankings based on review volume and average visitor rating.
     columns:
       - name: ride_key
         description: Surrogate PK from `dim_rides`.
-        tests:
+        data_tests:
           - unique
           - not_null
-
       - name: ride_id
-        description: Natural key from `raw_rides`. Varchar.
-        tests:
+        description: Natural key from `raw_rides`.
+        data_tests:
           - unique
           - not_null
-
       - name: ride_name
         description: Display name of the ride.
-        tests:
+        data_tests:
           - not_null
-
       - name: ride_type
-        description: Physical ride category (roller_coaster, dark_ride, etc.).
-
+        description: Physical ride category.
       - name: thrill_level
-        description: Operations-assigned thrill intensity (low, medium, high, extreme).
-
+        description: Operations-assigned thrill intensity.
       - name: zone
         description: Park zone where the ride is located.
-
       - name: is_haunted
         description: Boolean. TRUE for haunted/horror category rides.
-
       - name: capacity_per_hour
         description: Maximum riders per hour.
-
       - name: avg_wait_minutes
-        description: Rolling average queue wait time in minutes. Nullable.
-
+        description: Rolling average queue wait time in minutes.
       - name: total_reviews
-        description: Lifetime count of feedback records for this ride. 0 for unreviewed rides.
-
+        description: Lifetime count of feedback records for this ride.
       - name: avg_rating
-        description: Lifetime average satisfaction rating (1–5). 0 for unreviewed rides.
-
+        description: Lifetime average satisfaction rating.
       - name: positive_review_pct
-        description: Percentage of positive reviews (0–100). 0 for unreviewed rides.
-
+        description: Percentage of positive reviews.
       - name: rating_tier
-        description: >
-          Categorical rating band:
-          'Top Rated' (avg ≥ 4.5), 'Well Rated' (≥ 3.5), 'Average' (≥ 2.5),
-          'Below Average' (> 0), 'Not Yet Rated' (avg = 0).
-        tests:
+        description: Categorical rating band.
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['Top Rated', 'Well Rated', 'Average', 'Below Average', 'Not Yet Rated']
-
       - name: review_volume_rank
-        description: >
-          Non-additive. Rank by `total_reviews` descending — rank 1 is the most-reviewed ride.
-          Ties share the same rank.
-        tests:
+        description: Rank by `total_reviews` descending.
+        data_tests:
           - not_null
-
       - name: rating_rank
-        description: >
-          Non-additive. Rank by `avg_rating` descending — rank 1 is the highest-rated ride.
-          NULLS LAST ensures unreviewed rides sort to the bottom.
-        tests:
+        description: Rank by `avg_rating` descending.
+        data_tests:
           - not_null
-
-
-  # agg_customer_spending_profile is currently disabled (enabled=false in model SQL).
-  # Schema entry removed to avoid dbt1005 unused-entry warning.
-  # Re-add documentation here when the model is re-enabled with upstream age/gender data.
 
   - name: agg_fear_vs_ratings
-    description: >
-      Analysis of whether higher fear levels correlate with higher or lower visitor
-      satisfaction. One row per (visitor_type, fear_level) combination, plus one
-      'All Visitors' row per fear_level for an overall view. Grain is
-      (visitor_type, fear_level).
-
-      Built from `stg_feedback__haunted_visitor_feedback`. `visitor_type` is a proxy
-      derived from the feedback `category` field — not a direct visitor classification.
-      `fear_level` is the numeric intensity of the haunted house (1–5).
-
-      Use this model to answer: "Do guests who experience higher-fear haunted houses
-      rate them better or worse than lower-fear houses?"
-
-      Owner: analytics@themeparkanalytics.com
+    description: Analysis of whether higher fear levels correlate with visitor satisfaction.
     columns:
       - name: visitor_type
-        description: >
-          Feedback category used as visitor type proxy (e.g. 'ride', 'food', 'general').
-          'All Visitors' rows represent the cross-visitor aggregate for each fear_level.
-        tests:
+        description: Feedback category used as visitor type proxy.
+        data_tests:
           - not_null
-
       - name: fear_level
-        description: >
-          Haunted house fear intensity (integer 1–5). One of the two grouping dimensions.
-          See `{{ doc('fear_level_mapping') }}` for the full mapping.
-        tests:
+        description: Haunted house fear intensity.
+        data_tests:
           - not_null
-
       - name: avg_satisfaction
-        description: >
-          Non-additive. Average satisfaction rating for this visitor_type + fear_level
-          combination, rounded to 2 decimal places.
-        tests:
+        description: Average satisfaction rating.
+        data_tests:
           - not_null
-
       - name: total_visits
-        description: Count of feedback records for this visitor_type + fear_level combination.
-        tests:
+        description: Count of feedback records for this grouping.
+        data_tests:
           - not_null
-
 
   - name: agg_halloween_spending
-    description: >
-      Ticket spending patterns relative to Halloween (October 31).
-      One row per date proximity bucket. Grain is `date_bucket`.
-
-      Visits are bucketed by their proximity to Oct 31 using `dim_dates.days_to_halloween`:
-        - 'Halloween Day': exactly Oct 31
-        - 'Week of Halloween': 1–7 days before
-        - 'October Pre-Halloween': 8–30 days before
-        - '2 Months Before': 31–60 days before
-        - 'Post Halloween (2 wks)': 1–14 days after
-        - 'Off Season': > 14 days after
-
-      Data is filtered to visits on or after `var('halloween_analysis_start_date')`
-      (default: 2023-01-01). Override via CLI: `--vars '{"halloween_analysis_start_date": "2024-01-01"}'`
-
-      `spend_tier` is derived from `avg_ticket_price` using the `spending_tier` macro.
-
-      Owner: analytics@themeparkanalytics.com
+    description: Ticket spending patterns relative to Halloween.
     columns:
       - name: date_bucket
-        description: >
-          Halloween proximity label. Primary key of this model.
-          Values: 'Halloween Day', 'Week of Halloween', 'October Pre-Halloween',
-          '2 Months Before', 'Post Halloween (2 wks)', 'Off Season', 'Far Out'.
-        tests:
+        description: Halloween proximity label.
+        data_tests:
           - unique
           - not_null
-
       - name: total_tickets
         description: Count of ticket sale records in this date bucket.
-        tests:
+        data_tests:
           - not_null
-
       - name: total_revenue
-        description: >
-          Additive. Sum of ticket prices for visits in this date bucket, rounded to 2 dp.
-        tests:
+        description: Sum of ticket prices for visits in this date bucket.
+        data_tests:
           - not_null
-
       - name: avg_ticket_price
-        description: >
-          Non-additive. Average ticket price for visits in this date bucket, rounded to 2 dp.
-          Use to compare pricing levels across Halloween proximity periods.
-        tests:
+        description: Average ticket price for visits in this date bucket.
+        data_tests:
           - not_null
-
       - name: avg_discount_pct
-        description: >
-          Non-additive. Average discount percentage applied to tickets in this bucket,
-          rounded to 2 dp. Higher values indicate more promotional activity.
-        tests:
+        description: Average discount percentage applied to tickets in this bucket.
+        data_tests:
           - not_null
-
       - name: spend_tier
-        description: >
-          Categorical spend tier derived from `avg_ticket_price` via the `spending_tier`
-          macro. Encodes relative spend level for quick visual categorisation.
-        tests:
+        description: Spend tier derived from `avg_ticket_price`.
+        data_tests:
           - not_null
-
 
   - name: agg_happiest_houses
-    description: >
-      Ranking of haunted houses by visitor satisfaction, filtered to feedback records
-      with `satisfaction_rating >= var('min_satisfaction_rating')` (default: 3).
-      One row per haunted house. Grain is `haunted_house_name`.
-
-      `recommendation_rate` = % of visitors who `would_recommend` (rating ≥ 4).
-      `happiness_rank` = RANK() by avg_satisfaction descending, with review count
-      as tiebreaker.
-
-      Override the minimum satisfaction threshold via CLI:
-      `--vars '{"min_satisfaction_rating": 4}'` to focus on satisfied-only respondents.
-
-      Owner: analytics@themeparkanalytics.com
+    description: Ranking of haunted houses by visitor satisfaction.
     columns:
       - name: haunted_house_name
-        description: Display name of the haunted house. Primary key of this model.
-        tests:
+        description: Display name of the haunted house.
+        data_tests:
           - unique
           - not_null
-
       - name: total_visits
-        description: >
-          Count of feedback records for this house at or above the satisfaction threshold.
-          Note: the filter means this is NOT a total visit count — it excludes very
-          dissatisfied guests.
-        tests:
+        description: Count of feedback records for this house at or above the threshold.
+        data_tests:
           - not_null
-
       - name: avg_satisfaction
-        description: >
-          Non-additive. Average satisfaction rating for filtered feedback records,
-          rounded to 2 dp. Range: `var('min_satisfaction_rating')` to 5.0.
-        tests:
+        description: Average satisfaction rating for filtered feedback records.
+        data_tests:
           - not_null
-
       - name: recommendation_rate
-        description: >
-          Non-additive. Percentage of visitors who would recommend this house
-          (`would_recommend = TRUE`), rounded to 2 dp. 0 when no qualifying visitors
-          would recommend. Range: 0–100.
-        tests:
+        description: Percentage of visitors who would recommend this house.
+        data_tests:
           - not_null
-
       - name: happiness_rank
-        description: >
-          Non-additive. RANK() by avg_satisfaction descending, with total_visits as
-          tiebreaker. Rank 1 is the happiest house. Ties share the same rank.
-        tests:
+        description: Rank by avg_satisfaction descending.
+        data_tests:
           - not_null
-
 
   - name: agg_house_profitability_by_time
-    description: >
-      Haunted house revenue and satisfaction by time slot.
-      One row per (haunted_house_name, visit_hour) combination. Grain is the
-      two-column combination.
-
-      Built from `stg_feedback__haunted_visitor_feedback`. Since `visit_hour` is
-      always NULL in the current source, **all rows in this model will have
-      `visit_hour = NULL`** and only one row will exist per haunted house
-      (the NULL time slot). This model is intended for use once `visit_hour`
-      data is available upstream.
-
-      `time_slot` is derived from `visit_hour` via the `visit_time_of_day` macro
-      (e.g. 'Morning', 'Afternoon', 'Evening', 'Night').
-
-      Owner: analytics@themeparkanalytics.com
+    description: Haunted house revenue and satisfaction by time slot.
     columns:
       - name: haunted_house_name
-        description: Display name of the haunted house. One of the two grain columns.
-        tests:
+        description: Display name of the haunted house.
+        data_tests:
           - not_null
-
       - name: visit_hour
-        description: >
-          Hour of the park visit (0–23). Currently always NULL because time-of-day
-          is not captured in the feedback source. Will become meaningful when upstream
-          data is enriched with visit timestamps.
-
+        description: Hour of the park visit.
       - name: time_slot
-        description: >
-          Time-of-day category from the `visit_time_of_day` macro. NULL when `visit_hour`
-          is NULL. Expected values once data is available: 'Morning', 'Afternoon',
-          'Evening', 'Night'.
-
+        description: Time-of-day category from the `visit_time_of_day` macro.
       - name: total_visits
-        description: Count of feedback records for this house + time_slot combination.
-        tests:
+        description: Count of feedback records for this house and time slot.
+        data_tests:
           - not_null
-
       - name: total_revenue
-        description: >
-          Additive. Sum of `ticket_price` for feedback records in this combination.
-          Always NULL in current data because `ticket_price` is NULL in the haunted
-          visitor feedback source.
-
+        description: Sum of `ticket_price` for feedback records in this combination.
       - name: avg_ticket_price
-        description: >
-          Non-additive. Average ticket price for this combination. NULL in current
-          data because `ticket_price` is NULL in the source.
-
+        description: Average ticket price for this combination.
       - name: avg_satisfaction
-        description: >
-          Non-additive. Average satisfaction rating (1–5) for this house + time_slot,
-          rounded to 2 dp.
-        tests:
+        description: Average satisfaction rating for this house and time slot.
+        data_tests:
           - not_null
-
       - name: recommendation_rate
-        description: >
-          Non-additive. Percentage of visitors who would recommend this house in this
-          time slot, rounded to 2 dp. Range: 0–100.
-        tests:
+        description: Percentage of visitors who would recommend this house in this time slot.
+        data_tests:
           - not_null
-
 
   - name: agg_ticket_value
-    description: >
-      Value analysis comparing ticket tiers within each haunted house.
-      One row per (haunted_house_name, ticket_tier) combination. Grain is the
-      two-column combination.
-
-      `ticket_tier` is derived from `includes_vip_benefits` and `includes_fast_pass`
-      flags on the feedback record:
-        - 'VIP + Fast Pass': both TRUE
-        - 'VIP Only': VIP only
-        - 'Fast Pass Only': fast pass only
-        - 'Standard': neither
-
-      `value_index = avg_satisfaction / avg_price * 100` — higher is better value.
-      Non-additive — compute weighted averages across houses using component columns.
-
-      Note: since `ticket_price` and benefit flags are NULL in the current haunted
-      visitor feedback source, `avg_price` and `value_index` will be NULL/0 until
-      upstream data is enriched.
-
-      Owner: analytics@themeparkanalytics.com
+    description: Value analysis comparing ticket tiers within each haunted house.
     columns:
       - name: haunted_house_name
-        description: Display name of the haunted house. One of the two grain columns.
-        tests:
+        description: Display name of the haunted house.
+        data_tests:
           - not_null
-
       - name: ticket_tier
-        description: >
-          Ticket benefit tier: 'VIP + Fast Pass', 'VIP Only', 'Fast Pass Only', 'Standard'.
-          Derived from benefit flags. Currently maps to 'Standard' for all rows because
-          benefit flags are NULL in the source.
-        tests:
+        description: Ticket benefit tier.
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['VIP + Fast Pass', 'VIP Only', 'Fast Pass Only', 'Standard']
-
       - name: avg_satisfaction
-        description: Average satisfaction rating for this house + ticket tier, rounded to 2 dp.
-        tests:
+        description: Average satisfaction rating for this house and ticket tier.
+        data_tests:
           - not_null
-
       - name: avg_price
-        description: >
-          Average ticket price for this house + ticket tier, rounded to 2 dp. NULL in
-          current data because `ticket_price` is NULL in the source.
-
+        description: Average ticket price for this house and ticket tier.
       - name: visit_count
-        description: Number of feedback records for this house + ticket tier combination.
-        tests:
+        description: Number of feedback records for this house and ticket tier.
+        data_tests:
           - not_null
-
       - name: value_index
-        description: >
-          Non-additive. `avg_satisfaction / avg_price * 100`, rounded to 4 dp. Higher
-          values indicate better value-for-money. NULL when `avg_price = 0` (NULLIF guard).
-          For cross-house comparison, use `value_rank`.
-
+        description: "avg_satisfaction / avg_price * 100"
       - name: value_rank
-        description: >
-          Non-additive. RANK() by `value_index` descending across all house + tier
-          combinations. Rank 1 is the best value. NULL when `value_index` is NULL.
-        tests:
+        description: Rank by `value_index` descending.
+        data_tests:
           - not_null
-
 
   - name: agg_vip_satisfaction
-    description: >
-      Comparison of satisfaction levels between VIP and non-VIP visitors per haunted house.
-      One row per (haunted_house_name, is_vip) combination. Grain is the two-column combination.
-
-      `satisfaction_gap = vip_avg_satisfaction - non_vip_avg_satisfaction`. A positive gap
-      means VIP visitors are more satisfied; negative means non-VIP are more satisfied.
-
-      Note: `is_vip` is derived from `includes_vip_benefits`, which is NULL in the current
-      haunted visitor feedback source. Until upstream data is enriched, all rows will have
-      `is_vip = NULL` and `satisfaction_gap = NULL`.
-
-      Owner: analytics@themeparkanalytics.com
+    description: Comparison of satisfaction levels between VIP and non-VIP visitors per haunted house.
     columns:
       - name: haunted_house_name
-        description: Display name of the haunted house. One of the two grain columns.
-        tests:
+        description: Display name of the haunted house.
+        data_tests:
           - not_null
-
       - name: is_vip
-        description: >
-          Boolean. TRUE for VIP visitors (includes_vip_benefits = TRUE). NULL in current
-          data because `includes_vip_benefits` is NULL in the source.
-
+        description: TRUE for VIP visitors.
       - name: avg_satisfaction
-        description: Average satisfaction rating for this house + VIP status, rounded to 2 dp.
-        tests:
+        description: Average satisfaction rating for this house and VIP status.
+        data_tests:
           - not_null
-
       - name: satisfaction_gap
-        description: >
-          Non-additive. `vip_avg_satisfaction - non_vip_avg_satisfaction` for this house,
-          rounded to 2 dp. Positive = VIP more satisfied. NULL when either VIP or non-VIP
-          group has no data. Carries the same value for both rows of the same house.
-
+        description: "vip_avg_satisfaction - non_vip_avg_satisfaction for this house"
 
   - name: agg_visitor_recommendations
-    description: >
-      Recommendation rate and NPS segmentation by visitor type.
-      One row per visitor type. Grain is `visitor_type`.
-
-      `recommendation_rate` = % of visitors who `would_recommend` (satisfaction ≥ 4).
-      `nps_segment` classifies each visitor type: 'Promoter' (≥ 70%), 'Passive' (≥ 50%),
-      'Detractor' (< 50%).
-
-      `visitor_type` is the `category` proxy from `stg_feedback__haunted_visitor_feedback`
-      (e.g. 'ride', 'food', 'general') — not a true visitor classification.
-
-      Owner: analytics@themeparkanalytics.com
+    description: Recommendation rate and NPS segmentation by visitor type.
     columns:
       - name: visitor_type
-        description: >
-          Feedback category used as visitor type proxy. Primary key of this model.
-          Values: 'ride', 'food', 'general', 'wait_times', 'staff', 'cleanliness'.
-        tests:
+        description: Feedback category used as visitor type proxy.
+        data_tests:
           - unique
           - not_null
-
       - name: recommendation_rate
-        description: >
-          Non-additive. Percentage of visitors in this type who `would_recommend`,
-          rounded to 2 dp. Range: 0–100.
-        tests:
+        description: Percentage of visitors in this type who would recommend.
+        data_tests:
           - not_null
-
       - name: total_visits
         description: Count of feedback records for this visitor type.
-        tests:
+        data_tests:
           - not_null
-
       - name: nps_segment
-        description: >
-          NPS classification based on recommendation rate:
-          'Promoter' (≥ 70%), 'Passive' (≥ 50%), 'Detractor' (< 50%).
-        tests:
+        description: NPS classification based on recommendation rate.
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['Promoter', 'Passive', 'Detractor']
-
       - name: promoter_rank
-        description: >
-          Non-additive. RANK() by recommendation_rate descending. Rank 1 is the visitor
-          type most likely to recommend.
-        tests:
+        description: Rank by recommendation_rate descending.
+        data_tests:
           - not_null

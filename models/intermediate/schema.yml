@@ -36,7 +36,7 @@ models:
         description: >
           Calendar date of the park visit. Primary key of this intermediate model.
           Can originate from either the ticket or sales transaction source.
-        tests:
+        data_tests:
           - not_null
           - unique
 
@@ -100,7 +100,7 @@ models:
         description: >
           Natural primary key from `stg_park_assets__rides`. Varchar. Use for joins
           from dimension and fact tables.
-        tests:
+        data_tests:
           - not_null
           - unique
 
@@ -177,7 +177,7 @@ models:
         description: >
           Primary key for the visit record, sourced from `stg_sales__tickets.ticket_id`.
           Each ticket represents one visit event. Varchar.
-        tests:
+        data_tests:
           - not_null
           - unique
 
@@ -185,14 +185,14 @@ models:
         description: >
           Foreign key to `stg_customer_data__customers.customer_id`. Identifies the
           visiting customer.
-        tests:
+        data_tests:
           - not_null
 
       - name: visit_date
         description: >
           Date of the park visit (YYYY-MM-DD). Used as the join key for in-park spend
           and feedback aggregation.
-        tests:
+        data_tests:
           - not_null
 
       - name: ticket_type

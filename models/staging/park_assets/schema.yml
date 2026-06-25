@@ -21,7 +21,7 @@ models:
         description: >
           Natural primary key for the ride, sourced from `raw_rides.ride_id`. Varchar.
           Use for joins to feedback, fact tables, and dimension models.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -30,7 +30,7 @@ models:
           Display name of the ride or attraction as shown to guests.
           Treated as a natural key — should be unique. Duplicates trigger a stored-failure
           test for operations investigation.
-        tests:
+        data_tests:
           - not_null
 
       - name: ride_type
@@ -38,7 +38,7 @@ models:
           Physical category of the ride.
           Values: `roller_coaster`, `dark_ride`, `drop_tower`, `water_ride`,
           `carousel`, `kiddie_ride`.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -56,7 +56,7 @@ models:
           Subjective thrill intensity assigned by the operations team.
           Values: `low`, `medium`, `high`, `extreme`. Downstream models derive a numeric
           `fear_level` (1–5) from this column — see the `fear_level_mapping` doc block.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -66,14 +66,14 @@ models:
         description: >
           Maximum number of riders the attraction can process per hour under normal
           operating conditions. Integer. Used for utilisation and throughput analytics.
-        tests:
+        data_tests:
           - not_null
 
       - name: zone
         description: >
           Named park zone where the ride is located (e.g. 'Adventure Zone', 'Family Land').
           Used for spatial analysis and staff zone assignment matching.
-        tests:
+        data_tests:
           - not_null
 
       - name: is_haunted
@@ -81,14 +81,14 @@ models:
           Boolean. TRUE when the ride belongs to the haunted/horror category and is
           included in the external haunted house analytics pipeline. Rides where
           `is_haunted = TRUE` are also surfaced in the `external_haunted` source views.
-        tests:
+        data_tests:
           - not_null
 
       - name: opened_date
         description: >
           Date the ride first opened to the public (YYYY-MM-DD). Used for ride age
           calculations and cohort analysis of new vs. established attractions.
-        tests:
+        data_tests:
           - not_null
 
       - name: status
@@ -97,7 +97,7 @@ models:
           Values: `active` (open to guests), `maintenance` (temporarily closed for service),
           `closed` (permanently or seasonally shut). Filter on `status = 'active'` for
           operational reporting that should exclude unavailable rides.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -134,25 +134,25 @@ models:
         description: >
           Natural primary key for the employee, sourced from `raw_employees.employee_id`.
           Varchar. Stable across refreshes.
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: first_name
         description: Employee's given name. PII — restrict in shared environments.
-        tests:
+        data_tests:
           - not_null
 
       - name: last_name
         description: Employee's family name. PII — restrict in shared environments.
-        tests:
+        data_tests:
           - not_null
 
       - name: full_name
         description: >
           Concatenation of `first_name || ' ' || last_name`. Derived in staging for
           display convenience. Not unique — two employees can share a name.
-        tests:
+        data_tests:
           - not_null
 
       - name: department
@@ -160,7 +160,7 @@ models:
           Business unit the employee belongs to.
           Values: `operations`, `food_beverage`, `merchandise`, `security`,
           `guest_services`, `maintenance`.
-        tests:
+        data_tests:
           - not_null
           - accepted_values:
               arguments:
@@ -176,7 +176,7 @@ models:
         description: >
           Date the employee was hired (YYYY-MM-DD). Used to calculate `years_of_service`
           in `dim_employees` and for tenure-based staffing analytics.
-        tests:
+        data_tests:
           - not_null
 
       - name: hourly_rate
@@ -184,7 +184,7 @@ models:
           Current hourly compensation rate in USD, cast to `numeric(10,2)`. Sensitive HR
           data — restrict to HR and finance consumers. Downstream: `dim_employees.
           estimated_annual_salary` multiplies this by 40 hours × 52 weeks.
-        tests:
+        data_tests:
           - not_null
 
       - name: manager_id
@@ -198,7 +198,7 @@ models:
           Boolean. TRUE when the employee is currently employed at the park. FALSE for
           terminated or on-leave staff. Filter on `is_active = TRUE` for operational
           headcount and scheduling reports.
-        tests:
+        data_tests:
           - not_null
 
       - name: zone_assignment
@@ -236,7 +236,7 @@ models:
         description: >
           Surrogate integer primary key assigned by `ROW_NUMBER() OVER (ORDER BY ticket_type)`.
           Deterministic and stable as long as no new ticket types are introduced.
-        tests:
+        data_tests:
           - unique
           - not_null
 
@@ -244,7 +244,7 @@ models:
         description: >
           Canonical name of the ticket product, sourced from `raw_tickets.ticket_type`.
           Values: `day_pass`, `weekend_pass`, `annual_pass`, `group_pass`.
-        tests:
+        data_tests:
           - unique
           - not_null
           - accepted_values:
@@ -258,55 +258,12 @@ models:
 
       - name: price
         description: >
-          Average `base_price` across all historical purchases of this ticket type, cast to
-          `numeric(10,2)`. This is a **representative price**, not a transactional price.
-          For actual revenue, use `stg_sales__tickets.final_price`.
-        tests:
-          - not_null
+          Average historical base price for this ticket type across all raw ticket records.
 
       - name: launch_date
         description: >
-          Date the ticket product was introduced. **Always NULL** — not tracked in the
-          raw source. Stubbed for haunted house schema compatibility.
-
-      - name: includes_fast_pass
-        description: >
-          Boolean. TRUE for `weekend_pass` and `annual_pass`, which grant Fast Pass queue
-          access. FALSE for `day_pass` and `group_pass`.
-        tests:
-          - not_null
-
-      - name: includes_vip_benefits
-        description: >
-          Boolean. TRUE for `annual_pass` only, granting VIP lounge access and priority
-          boarding. FALSE for all other ticket types.
-        tests:
-          - not_null
-
-      - name: fear_level
-        description: >
-          Integer (2–5). Tier ranking for haunted house analytics compatibility.
-          `annual_pass` = 5, `weekend_pass` = 4, `day_pass` = 3, `group_pass` = 2.
-          This is a tier proxy, not a direct measure of ride intensity.
-        tests:
-          - not_null
-
-      - name: duration_minutes
-        description: >
-          Expected visit duration in minutes by ticket type: `annual_pass` = 240,
-          `weekend_pass` = 180, all others = 120. Derived approximation.
-        tests:
-          - not_null
+          Product launch date. **Always NULL** — not available in the raw source.
 
       - name: house_category
         description: >
-          Haunted house product category. **Always NULL** — not available in the source.
-          Stubbed for schema compatibility.
-
-      - name: created_at
-        description: Set to `CURRENT_TIMESTAMP` at build time. Refreshes on every model run.
-
-      - name: updated_at
-        description: >
-          Set to `CURRENT_TIMESTAMP` at build time. Changes whenever the underlying
-          average price shifts due to new ticket purchases in the source.
+          Haunted house category. **Always NULL** — stubbed for schema compatibility.

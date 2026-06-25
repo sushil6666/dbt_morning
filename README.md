@@ -15,7 +15,7 @@ This project serves two purposes:
 dbt deps
 dbt seed
 dbt build
-dbt docs generate && dbt docs serve
+
 ```
 
 ---

@@ -143,27 +143,8 @@ The project includes 7 SCD Type 2 snapshots:
 
 ---
 
-## Macro Demos and Technical Patterns
+## Macro  and Technical Patterns
 
-The `models/macro_demos/` folder contains working examples of dbt and Snowflake patterns. These are real models in the repo, but they are separate from the main business marts.
-
-Examples include:
-
-- `demo_21_incremental_merge`
-- `demo_22_incremental_append`
-- `demo_23_incremental_delete_insert`
-- `demo_24_incremental_insert_overwrite`
-- `demo_25_incremental_microbatch`
-- `demo_26_ephemeral_base` and `demo_26_ephemeral_consumer`
-- `demo_27_dynamic_table`
-- `demo_32_pre_hook`
-- `demo_33_audit_hooks`
-- `demo_34_contract_enforced_table`
-- `demo_35_schema_drift_append_new_columns`
-- `demo_36_schema_drift_sync_all_columns`
-- `demo_37_contract_incremental_append`
-- `demo_38_on_error_continue_upstream` and `demo_38_on_error_continue_downstream`
-- `demo_39_exception_handling`
 
 The macro library also includes reusable business and platform macros such as:
 

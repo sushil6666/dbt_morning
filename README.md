@@ -5,7 +5,7 @@ A **dbt** project for theme park ticket sales, visitor satisfaction, ride perfor
 This project serves two purposes:
 
 1. **Production-style analytics** : a working dimensional model for visits, ticket revenue, in-park sales, customer segmentation, ride quality, and haunted house analysis
-2. **Learning lab** — a set of Snowflake and dbt pattern demos under `models/macro_demos/`, with working examples for incrementals, hooks, governance, custom materializations, schema drift, and testing
+2. **Learning lab** : a set of Snowflake and dbt pattern demos under `models/macro_demos/`, with working examples for incrementals, hooks, governance, custom materializations, schema drift, and testing
 
 ---
 
@@ -321,7 +321,6 @@ dbt snapshot
 
 ![Project diagram](Project_diagram.png)
 
-*Existing project diagram from the repo root. For a current text-based lineage view, see `docs/technical_doc.md`.*
 
 ---
 

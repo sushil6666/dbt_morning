@@ -114,8 +114,135 @@ models:
               arguments:
                 min_value: 0
 
+
+  - name: customer_revenue_retention_summary
+    description: >
+      Stakeholder-facing customer value mart with one row per `customer_id`.
+      It combines customer attributes with observed visit behavior so CRM, finance,
+      and park leadership can identify high-value guests, recent/lapsed guests, and
+      customers whose purchase behavior suggests upsell or retention opportunities.
+
+      This model uses actual visit facts for revenue and recency. In the current seed-backed
+      dataset, each customer has one recorded visit and no POS transactions match visits on
+      `(customer_id, visit_date)`, so repeat-visit behavior is limited and `lifetime_in_park_revenue`
+      is currently 0 across the board.
+    columns:
+      - name: customer_id
+        description: Customer primary key. Grain of this model is one row per customer.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: first_name
+        description: Customer first name from `dim_customers`.
+      - name: last_name
+        description: Customer last name from `dim_customers`.
+      - name: email
+        description: Customer email from `dim_customers`.
+      - name: registration_date
+        description: Date the customer account was created.
+      - name: loyalty_tier
+        description: Loyalty tier inherited from `dim_customers`.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Gold', 'Silver', 'Bronze']
+      - name: customer_value_segment
+        description: Existing customer segment from `dim_customers`.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['High Value', 'Mid Value', 'Standard']
+      - name: customer_lifecycle_stage
+        description: Lifecycle stage inherited from `dim_customers`.
+      - name: total_visits
+        description: Count of ticketed visits recorded for the customer.
+        data_tests:
+          - not_null
+      - name: first_visit_date
+        description: First recorded park visit date for the customer.
+        data_tests:
+          - not_null
+      - name: most_recent_visit_date
+        description: Most recent recorded park visit date for the customer.
+        data_tests:
+          - not_null
+      - name: days_since_last_visit
+        description: Days between the customer's most recent visit and today.
+        data_tests:
+          - not_null
+      - name: lifetime_ticket_revenue
+        description: Total ticket revenue across the customer's visits.
+        data_tests:
+          - not_null
+      - name: lifetime_in_park_spend
+        description: Total matched in-park spend across the customer's visits.
+        data_tests:
+          - not_null
+      - name: lifetime_total_spend
+        description: Total customer spend across ticket and matched POS revenue.
+        data_tests:
+          - not_null
+      - name: avg_spend_per_visit
+        description: Average total spend per recorded visit.
+        data_tests:
+          - not_null
+      - name: avg_visit_rating
+        description: Average visit satisfaction rating when the customer submitted feedback.
+      - name: feedback_submissions
+        description: Count of matched feedback submissions across all visits.
+        data_tests:
+          - not_null
+      - name: discounted_visit_count
+        description: Number of visits where the ticket was discounted.
+        data_tests:
+          - not_null
+      - name: same_day_visit_count
+        description: Number of visits purchased on the same day as the visit.
+        data_tests:
+          - not_null
+      - name: advance_purchase_visit_count
+        description: Number of visits purchased at least 7 days in advance.
+        data_tests:
+          - not_null
+      - name: avg_booking_lead_days
+        description: Average days between purchase and visit date.
+      - name: is_repeat_visitor
+        description: TRUE when the customer has more than one recorded visit.
+        data_tests:
+          - not_null
+      - name: behavioral_value_segment
+        description: Spend-based customer segment derived from observed lifetime spend.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['High Value', 'Mid Value', 'Standard']
+      - name: recency_segment
+        description: Recency bucket derived from days since last visit.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Active', 'Cooling', 'Lapsed']
+      - name: retention_risk_level
+        description: Retention risk proxy derived from customer recency.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['High', 'Medium', 'Low']
+
   - name: agg_ride_popularity
-    description: Ride popularity rankings based on review volume and average visitor rating.
+    description: >
+      Ride popularity and satisfaction summary with one row per `ride_id`.
+      This model combines review volume, satisfaction, and wait-time context so rides can
+      be segmented into useful business groupings instead of being ranked only by raw review count.
     columns:
       - name: ride_key
         description: Surrogate PK from `dim_rides`.
@@ -138,32 +265,144 @@ models:
       - name: zone
         description: Park zone where the ride is located.
       - name: is_haunted
-        description: Boolean. TRUE for haunted/horror category rides.
+        description: TRUE for haunted rides.
+      - name: status
+        description: Current ride operating status.
       - name: capacity_per_hour
         description: Maximum riders per hour.
       - name: avg_wait_minutes
         description: Rolling average queue wait time in minutes.
       - name: total_reviews
-        description: Lifetime count of feedback records for this ride.
+        description: Lifetime count of ride feedback records.
       - name: avg_rating
         description: Lifetime average satisfaction rating.
       - name: positive_review_pct
         description: Percentage of positive reviews.
+      - name: has_reviews
+        description: TRUE when the ride has at least one review.
+        data_tests:
+          - not_null
+      - name: review_count_band
+        description: Review volume band based on `total_reviews`.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['No Reviews', 'Single Review', 'Low Volume', 'Established']
       - name: rating_tier
-        description: Categorical rating band.
+        description: Categorical satisfaction band derived from `avg_rating`.
         data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['Top Rated', 'Well Rated', 'Average', 'Below Average', 'Not Yet Rated']
+      - name: popularity_segment
+        description: Review-volume segment for the ride.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Proven Favorite', 'Emerging Interest', 'Needs Awareness']
+      - name: wait_experience_segment
+        description: Combined wait-time and satisfaction segment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['High Wait / Low Satisfaction', 'High Wait / Strong Satisfaction', 'Low Wait / Strong Satisfaction', 'No Feedback Yet', 'Monitor']
       - name: review_volume_rank
-        description: Rank by `total_reviews` descending.
+        description: Rank by review volume, then rating.
         data_tests:
           - not_null
       - name: rating_rank
-        description: Rank by `avg_rating` descending.
+        description: Rank by rating, then review volume.
         data_tests:
           - not_null
+
+  - name: ride_satisfaction_opportunities
+    description: >
+      Stakeholder-facing ride performance mart with one row per `ride_id`.
+      It highlights which rides should be promoted, monitored, or investigated based on
+      guest satisfaction, review coverage, and queue wait context.
+    columns:
+      - name: ride_key
+        description: Surrogate ride key from `agg_ride_popularity`.
+        data_tests:
+          - unique
+          - not_null
+      - name: ride_id
+        description: Natural ride identifier.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_rides')
+                field: ride_id
+      - name: ride_name
+        description: Display name of the ride.
+        data_tests:
+          - not_null
+      - name: ride_type
+        description: Physical ride category.
+      - name: thrill_level
+        description: Operations-assigned thrill intensity.
+      - name: zone
+        description: Park zone where the ride is located.
+      - name: is_haunted
+        description: Haunted ride flag.
+      - name: status
+        description: Current ride operating status.
+      - name: capacity_per_hour
+        description: Maximum riders per hour.
+      - name: avg_wait_minutes
+        description: Rolling average queue wait time in minutes.
+      - name: total_reviews
+        description: Number of ride reviews captured for the attraction.
+        data_tests:
+          - not_null
+      - name: avg_rating
+        description: Average ride satisfaction rating.
+        data_tests:
+          - not_null
+      - name: positive_review_pct
+        description: Percentage of positive ride reviews.
+        data_tests:
+          - not_null
+      - name: review_count_band
+        description: Review volume band inherited from `agg_ride_popularity`.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['No Reviews', 'Single Review', 'Low Volume', 'Established']
+      - name: rating_tier
+        description: Satisfaction tier inherited from `agg_ride_popularity`.
+        data_tests:
+          - not_null
+      - name: popularity_segment
+        description: Review-volume segment inherited from `agg_ride_popularity`.
+        data_tests:
+          - not_null
+      - name: wait_experience_segment
+        description: Combined wait-time and satisfaction segment.
+        data_tests:
+          - not_null
+      - name: recommended_action
+        description: Recommended stakeholder action based on ride performance.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Collect More Feedback', 'Improve Guest Experience', 'Promote Ride', 'Build Awareness', 'Monitor Performance']
+      - name: action_priority
+        description: Priority level for the recommended action.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['High', 'Medium', 'Low']
+
 
   - name: agg_fear_vs_ratings
     description: Analysis of whether higher fear levels correlate with visitor satisfaction.

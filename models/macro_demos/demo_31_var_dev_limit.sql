@@ -31,7 +31,7 @@
     changes and new columns surface immediately without seed maintenance.
 */
 
-{% set row_limit = var('dev_row_limit', none) %}
+{% set row_limit = var('dev_row_limit1', none) %}
 
 select
     v.customer_id,

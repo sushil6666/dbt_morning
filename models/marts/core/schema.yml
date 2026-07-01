@@ -131,7 +131,13 @@ models:
         description: Last update timestamp.
 
   - name: dim_rides
-    description: Ride dimension enriched with aggregated visitor feedback metrics.
+    description: >
+      Ride dimension enriched with ride-specific guest satisfaction metrics.
+      One row per `ride_id`.
+
+      This dimension combines physical ride attributes with aggregated feedback coverage and
+      satisfaction measures so it can support both operational reporting and downstream
+      stakeholder-facing analytics.
     columns:
       - name: ride_key
         description: Surrogate ride key.
@@ -151,6 +157,8 @@ models:
         description: Physical category.
         data_tests:
           - not_null
+      - name: min_height_cm
+        description: Minimum rider height requirement in centimetres.
       - name: thrill_level
         description: Operations-assigned thrill intensity.
         data_tests:
@@ -166,6 +174,17 @@ models:
         description: Haunted flag.
         data_tests:
           - not_null
+      - name: status
+        description: Current operating status of the ride.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['active', 'maintenance', 'closed']
+      - name: opened_date
+        description: Date the ride opened to the public.
+        data_tests:
+          - not_null
       - name: capacity_per_hour
         description: Maximum riders per hour.
         data_tests:
@@ -173,13 +192,19 @@ models:
       - name: avg_wait_minutes
         description: Rolling average wait time.
       - name: total_reviews
-        description: Lifetime review count.
+        description: Lifetime count of ride feedback rows.
+        data_tests:
+          - not_null
       - name: avg_rating
-        description: Lifetime average satisfaction rating.
+        description: Lifetime average satisfaction rating from ride feedback.
         data_tests:
           - not_null
       - name: positive_reviews
         description: Positive review count.
+        data_tests:
+          - not_null
+      - name: neutral_reviews
+        description: Neutral review count.
         data_tests:
           - not_null
       - name: negative_reviews
@@ -190,6 +215,17 @@ models:
         description: Positive review percentage.
         data_tests:
           - not_null
+      - name: has_reviews
+        description: TRUE when the ride has at least one feedback row.
+        data_tests:
+          - not_null
+      - name: review_count_band
+        description: Review volume band for the ride.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['No Reviews', 'Single Review', 'Low Volume', 'Established']
 
   - name: dim_employees
     description: Employee dimension with manager hierarchy and tenure metrics.
@@ -564,7 +600,15 @@ models:
           - name: total_transactions
 
   - name: fct_visits
-    description: Fact table for customer park visits combining ticket price and in-park spend.
+    description: >
+      Fact table for customer park visits. One row per ticketed visit (`ticket_id`),
+      enriched with calendar attributes, matched in-park spend, booking behavior,
+      discount usage, and feedback participation.
+
+      `in_park_spend` is matched on `(customer_id, visit_date)`. In the current seed-backed
+      dataset, no POS rows match ticket rows on that key combination, so this column is
+      presently 0 for all records. The model keeps the field because it is the correct
+      visit-level place for the metric when matching transaction data is available.
     semantic_model:
       enabled: true
     agg_time_dimension: visit_date
@@ -629,14 +673,44 @@ models:
         data_type: varchar
         dimension:
           type: categorical
+      - name: purchase_date
+        description: Date the ticket for the visit was purchased.
+        data_type: date
+      - name: purchase_channel
+        description: Channel used to purchase the ticket.
+        data_type: varchar
+      - name: booking_lead_days
+        description: Days between ticket purchase and visit date.
+        data_type: number(38, 0)
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: is_same_day_visit
+        description: TRUE when `purchase_date = visit_date`.
+        data_type: boolean
+        data_tests:
+          - not_null
+      - name: is_advance_purchase
+        description: TRUE when the ticket was purchased at least 7 days before the visit.
+        data_type: boolean
+        data_tests:
+          - not_null
+      - name: is_discounted
+        description: TRUE when the ticket had a non-zero discount amount.
+        data_type: boolean
+        data_tests:
+          - not_null
       - name: ticket_price
         description: Entry ticket price paid in USD.
         data_type: number(10, 2)
       - name: in_park_spend
-        description: Total POS spend during this visit.
+        description: Total POS spend matched to the visit.
         data_type: number(10, 2)
       - name: total_visit_spend
-        description: "ticket_price + in_park_spend"
+        description: "Combined visit revenue: `ticket_price + in_park_spend`."
+
         data_type: number(10, 2)
         data_tests:
           - not_null
@@ -645,8 +719,18 @@ models:
                 min_value: 0
               config:
                 store_failures: true
+      - name: feedback_count
+        description: Number of matched feedback rows for the visit.
+        data_type: number(38, 0)
+        data_tests:
+          - not_null
+      - name: has_feedback
+        description: TRUE when at least one matched feedback row exists for the visit.
+        data_type: boolean
+        data_tests:
+          - not_null
       - name: avg_rating
-        description: Average satisfaction rating.
+        description: Average satisfaction rating across matched feedback for the visit.
         data_type: number(5, 2)
     metrics:
       - name: total_visits

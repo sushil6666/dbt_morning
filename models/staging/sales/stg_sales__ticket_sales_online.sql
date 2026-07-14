@@ -1,4 +1,4 @@
-{{ config(materialized='view') }}
+{{ config(materialized='table') }}
 
 -- Filters raw_tickets to online purchases only.
 -- ticket_id becomes sale_id (PK of the sale).

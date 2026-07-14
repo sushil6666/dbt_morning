@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: demo_40_generate_base_model
+    description: >
+      Demonstrates a dynamic staging-model generator macro. The model delegates
+      its full SELECT statement to `generate_base_model`, which reads from the
+      `raw.raw_sales_transactions` source, renames source columns into a
+      staging-friendly shape, applies a row filter, derives a boolean flag, and
+      appends standard audit metadata columns.
+    columns:
+      - name: sales_transaction_id
+        description: Source transaction identifier renamed for staging use.
+      - name: customer_id
+        description: Customer identifier passed through from the raw source.
+      - name: visit_date
+        description: Visit date associated with the sales transaction.
+      - name: product_category
+        description: High-level item category renamed from `category`.
+      - name: product_name
+        description: Item name renamed from `item_name`.
+      - name: gross_revenue
+        description: Transaction line amount renamed from `total_amount`.
+      - name: is_guest_checkout
+        description: True when the raw record has no customer identifier.

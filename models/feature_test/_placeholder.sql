@@ -1,3 +1,3 @@
 {{ config(enabled=false) }}
 
-select 1 as placeholder_id
+select 12 as placeholder_id

@@ -1,0 +1,863 @@
+-- ============================================================
+-- Step 1: Create all raw tables in their respective schemas
+-- Mirrors the column structure expected by dbt staging models
+-- ============================================================
+
+USE  DATABASE RAW;
+
+USE DATABASE RAW;
+USE ROLE    ACCOUNTADMIN;
+USE WAREHOUSE DBT_WH;
+
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_CUSTOMERS;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_TRANSACTIONAL;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_PAYMENTS;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_DELIVERY;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_ENGAGEMENT;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_GEOGRAPHY;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_RESTAURANTS;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_PROMOTIONS;
+CREATE SCHEMA IF NOT EXISTS RAW.ZOMATO_SUPPORT;
+
+-- -------------------------------------------------------
+-- GEOGRAPHY
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_GEOGRAPHY.CITIES (
+    city_id             VARCHAR(10)     NOT NULL,
+    city_name           VARCHAR(100)    NOT NULL,
+    state               VARCHAR(100)    NOT NULL,
+    tier                VARCHAR(5)      NOT NULL,
+    is_metro            BOOLEAN         NOT NULL,
+    is_active           BOOLEAN         NOT NULL,
+    launch_date         DATE,
+    _fivetran_synced    TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_GEOGRAPHY.AREAS (
+    area_id             VARCHAR(20)     NOT NULL,
+    city_id             VARCHAR(10)     NOT NULL,
+    area_name           VARCHAR(200)    NOT NULL,
+    pin_code            VARCHAR(10)     NOT NULL,
+    _fivetran_synced    TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- RESTAURANTS
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_RESTAURANTS.RESTAURANTS (
+    restaurant_id               VARCHAR(20)     NOT NULL,
+    restaurant_name             VARCHAR(300)    NOT NULL,
+    city_id                     VARCHAR(10)     NOT NULL,
+    area_id                     VARCHAR(20),
+    cuisine_type                VARCHAR(50)     NOT NULL,
+    restaurant_tier             VARCHAR(20)     NOT NULL,
+    is_active                   BOOLEAN         NOT NULL,
+    is_verified                 BOOLEAN         NOT NULL,
+    is_purely_vegetarian        BOOLEAN         NOT NULL,
+    average_prep_time_minutes   INTEGER,
+    minimum_order_amount        NUMBER(10,2),
+    average_cost_for_two        NUMBER(10,2),
+    commission_rate             FLOAT           NOT NULL,
+    overall_rating              FLOAT,
+    total_ratings_count         INTEGER,
+    created_at                  TIMESTAMP_NTZ   NOT NULL,
+    updated_at                  TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced            TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_RESTAURANTS.MENU_ITEMS (
+    menu_item_id        VARCHAR(20)     NOT NULL,
+    restaurant_id       VARCHAR(20)     NOT NULL,
+    item_name           VARCHAR(300)    NOT NULL,
+    item_category       VARCHAR(100)    NOT NULL,
+    base_price          NUMBER(10,2)    NOT NULL,
+    is_vegetarian       BOOLEAN         NOT NULL,
+    is_available        BOOLEAN         NOT NULL,
+    _fivetran_synced    TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- CUSTOMERS
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_CUSTOMERS.CUSTOMERS (
+    customer_id         VARCHAR(20)     NOT NULL,
+    customer_name       VARCHAR(200)    NOT NULL,
+    customer_email      VARCHAR(300)    NOT NULL,
+    customer_phone      VARCHAR(15)     NOT NULL,
+    city_id             VARCHAR(10)     NOT NULL,
+    acquisition_channel VARCHAR(50)     NOT NULL,
+    customer_segment    VARCHAR(20)     NOT NULL,
+    is_active           BOOLEAN         NOT NULL,
+    is_pro_subscriber   BOOLEAN         NOT NULL,
+    created_at          TIMESTAMP_NTZ   NOT NULL,
+    last_login_at       TIMESTAMP_NTZ,
+    updated_at          TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced    TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_CUSTOMERS.CUSTOMER_ADDRESSES (
+    address_id          VARCHAR(20)     NOT NULL,
+    customer_id         VARCHAR(20)     NOT NULL,
+    address_text        VARCHAR(500)    NOT NULL,
+    area_id             VARCHAR(20),
+    is_default          BOOLEAN         NOT NULL,
+    _fivetran_synced    TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- DELIVERY
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_DELIVERY.DELIVERY_PARTNERS (
+    delivery_partner_id             VARCHAR(20)     NOT NULL,
+    partner_name                    VARCHAR(200)    NOT NULL,
+    partner_phone                   VARCHAR(15)     NOT NULL,
+    vehicle_type                    VARCHAR(20)     NOT NULL,
+    home_city_id                    VARCHAR(10)     NOT NULL,
+    is_verified                     BOOLEAN         NOT NULL,
+    is_active                       BOOLEAN         NOT NULL,
+    total_deliveries_completed      INTEGER         NOT NULL,
+    average_rating                  FLOAT,
+    acceptance_rate                 FLOAT,
+    onboarded_at                    TIMESTAMP_NTZ   NOT NULL,
+    updated_at                      TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced                TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_DELIVERY.DELIVERIES (
+    delivery_id                 VARCHAR(20)     NOT NULL,
+    order_id                    VARCHAR(20)     NOT NULL,
+    delivery_partner_id         VARCHAR(20)     NOT NULL,
+    delivery_status             VARCHAR(30)     NOT NULL,
+    failure_reason              VARCHAR(100),
+    assigned_at                 TIMESTAMP_NTZ   NOT NULL,
+    en_route_restaurant_at      TIMESTAMP_NTZ,
+    arrived_restaurant_at       TIMESTAMP_NTZ,
+    picked_up_at                TIMESTAMP_NTZ,
+    delivered_at                TIMESTAMP_NTZ,
+    delivery_distance_km        FLOAT,
+    route_distance_km           FLOAT,
+    updated_at                  TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced            TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- TRANSACTIONAL (ORDERS)
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_TRANSACTIONAL.ORDERS (
+    order_id                    VARCHAR(20)     NOT NULL,
+    customer_id                 VARCHAR(20)     NOT NULL,
+    restaurant_id               VARCHAR(20)     NOT NULL,
+    delivery_partner_id         VARCHAR(20),
+    city_id                     VARCHAR(10)     NOT NULL,
+    promo_id                    VARCHAR(20),
+    subtotal_amount             NUMBER(12,2)    NOT NULL,
+    delivery_fee                NUMBER(8,2)     NOT NULL,
+    platform_fee                NUMBER(8,2)     NOT NULL,
+    promo_discount_amount       NUMBER(10,2)    NOT NULL,
+    tax_amount                  NUMBER(10,2)    NOT NULL,
+    total_amount                NUMBER(12,2)    NOT NULL,
+    order_status                VARCHAR(20)     NOT NULL,
+    cancellation_reason         VARCHAR(100),
+    is_contactless_delivery     BOOLEAN         NOT NULL,
+    ordered_at                  TIMESTAMP_NTZ   NOT NULL,
+    accepted_at                 TIMESTAMP_NTZ,
+    prepared_at                 TIMESTAMP_NTZ,
+    picked_up_at                TIMESTAMP_NTZ,
+    delivered_at                TIMESTAMP_NTZ,
+    cancelled_at                TIMESTAMP_NTZ,
+    updated_at                  TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced            TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_TRANSACTIONAL.ORDER_ITEMS (
+    order_item_id               VARCHAR(20)     NOT NULL,
+    order_id                    VARCHAR(20)     NOT NULL,
+    menu_item_id                VARCHAR(20)     NOT NULL,
+    restaurant_id               VARCHAR(20)     NOT NULL,
+    item_name                   VARCHAR(300)    NOT NULL,
+    item_category               VARCHAR(100)    NOT NULL,
+    is_vegetarian               BOOLEAN         NOT NULL,
+    quantity                    INTEGER         NOT NULL,
+    unit_price                  NUMBER(10,2)    NOT NULL,
+    customization_price_delta   NUMBER(8,2)     NOT NULL,
+    created_at                  TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced            TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- PAYMENTS
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_PAYMENTS.PAYMENT_METHODS (
+    payment_method_id           VARCHAR(20)     NOT NULL,
+    payment_method_name         VARCHAR(50)     NOT NULL,
+    payment_method_group        VARCHAR(20)     NOT NULL,
+    gateway_fee_rate            FLOAT           NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_PAYMENTS.PAYMENTS (
+    payment_id                  VARCHAR(20)     NOT NULL,
+    order_id                    VARCHAR(20)     NOT NULL,
+    payment_status              VARCHAR(20)     NOT NULL,
+    payment_method              VARCHAR(50)     NOT NULL,
+    payment_amount              NUMBER(12,2)    NOT NULL,
+    gateway_fee                 NUMBER(8,2)     NOT NULL,
+    paid_at                     TIMESTAMP_NTZ,
+    settlement_date             DATE,
+    _loaded_at                  TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- ENGAGEMENT (RATINGS & REVIEWS)
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_ENGAGEMENT.RATINGS (
+    rating_id                   VARCHAR(20)     NOT NULL,
+    order_id                    VARCHAR(20)     NOT NULL,
+    customer_id                 VARCHAR(20)     NOT NULL,
+    restaurant_id               VARCHAR(20)     NOT NULL,
+    delivery_partner_id         VARCHAR(20),
+    food_rating                 INTEGER         NOT NULL,
+    delivery_rating             INTEGER         NOT NULL,
+    overall_rating              FLOAT           NOT NULL,
+    rated_at                    TIMESTAMP_NTZ   NOT NULL,
+    _airbyte_extracted_at       TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_ENGAGEMENT.REVIEWS (
+    review_id                   VARCHAR(20)     NOT NULL,
+    rating_id                   VARCHAR(20)     NOT NULL,
+    review_text                 VARCHAR(2000),
+    sentiment_label             VARCHAR(10),
+    submitted_at                TIMESTAMP_NTZ   NOT NULL,
+    _airbyte_extracted_at       TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- PROMOTIONS
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_PROMOTIONS.PROMOTIONS (
+    promo_id                        VARCHAR(20)     NOT NULL,
+    promo_code                      VARCHAR(50)     NOT NULL,
+    promo_name                      VARCHAR(200)    NOT NULL,
+    promo_description               VARCHAR(500),
+    discount_type                   VARCHAR(20)     NOT NULL,
+    discount_value                  NUMBER(10,2)    NOT NULL,
+    promo_funder                    VARCHAR(20)     NOT NULL,
+    min_order_value                 NUMBER(10,2),
+    max_redemptions                 INTEGER,
+    max_redemptions_per_customer    INTEGER,
+    is_new_customer_only            BOOLEAN         NOT NULL,
+    eligible_cuisine_types          VARIANT,
+    valid_from                      DATE            NOT NULL,
+    valid_to                        DATE            NOT NULL,
+    is_active                       BOOLEAN         NOT NULL,
+    updated_at                      TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced                TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_PROMOTIONS.PROMO_REDEMPTIONS (
+    redemption_id               VARCHAR(20)     NOT NULL,
+    order_id                    VARCHAR(20)     NOT NULL,
+    promo_id                    VARCHAR(20)     NOT NULL,
+    customer_id                 VARCHAR(20)     NOT NULL,
+    discount_amount_applied     NUMBER(10,2)    NOT NULL,
+    redemption_status           VARCHAR(20)     NOT NULL,
+    failure_reason              VARCHAR(200),
+    redeemed_at                 TIMESTAMP_NTZ   NOT NULL,
+    _fivetran_synced            TIMESTAMP_NTZ   NOT NULL
+);
+
+-- -------------------------------------------------------
+-- SUPPORT
+-- -------------------------------------------------------
+CREATE OR REPLACE TABLE RAW.ZOMATO_SUPPORT.SUPPORT_TICKETS (
+    ticket_id                   VARCHAR(20)     NOT NULL,
+    customer_id                 VARCHAR(20)     NOT NULL,
+    order_id                    VARCHAR(20),
+    assigned_agent_id           VARCHAR(20),
+    ticket_category             VARCHAR(50)     NOT NULL,
+    ticket_status               VARCHAR(20)     NOT NULL,
+    priority                    VARCHAR(10)     NOT NULL,
+    resolution_code             VARCHAR(50),
+    csat_score                  INTEGER,
+    created_at                  TIMESTAMP_NTZ   NOT NULL,
+    first_response_at           TIMESTAMP_NTZ,
+    resolved_at                 TIMESTAMP_NTZ,
+    updated_at                  TIMESTAMP_NTZ   NOT NULL,
+    _airbyte_extracted_at       TIMESTAMP_NTZ   NOT NULL
+);
+
+CREATE OR REPLACE TABLE RAW.ZOMATO_SUPPORT.TICKET_COMMENTS (
+    comment_id                  VARCHAR(20)     NOT NULL,
+    ticket_id                   VARCHAR(20)     NOT NULL,
+    commenter_type              VARCHAR(10)     NOT NULL,
+    comment_text                VARCHAR(2000),
+    commented_at                TIMESTAMP_NTZ   NOT NULL,
+    _airbyte_extracted_at       TIMESTAMP_NTZ   NOT NULL
+);
+------------------------------------------------------------------
+-- ============================================================
+-- Dev Quick-Load: >= 5,000 rows per table
+-- Runs in ~3-5 minutes on an XS warehouse.
+-- Truncates all tables first, then inserts in FK dependency order.
+--
+-- Usage:  python orchestrate.py --step dev
+--
+-- Row count targets:
+--   CITIES              :    20  (reference - bounded to real Indian cities)
+--   PAYMENT_METHODS     :    10  (static reference)
+--   AREAS               :  5,000
+--   PROMOTIONS          :  5,000
+--   RESTAURANTS         :  5,000
+--   MENU_ITEMS          : 25,000
+--   CUSTOMERS           : 10,000
+--   CUSTOMER_ADDRESSES  : 15,000
+--   DELIVERY_PARTNERS   :  5,000
+--   ORDERS              : 50,000
+--   ORDER_ITEMS         :~150,000  (3 per order)
+--   DELIVERIES          : ~42,500  (~85% of orders)
+--   PAYMENTS            : 50,000   (one per order)
+--   RATINGS             : ~25,000  (70% of delivered orders)
+--   REVIEWS             : ~12,500  (50% of ratings)
+--   PROMO_REDEMPTIONS   : ~10,000  (orders with promo_id set)
+--   SUPPORT_TICKETS     :  ~5,000  (10% of orders)
+--   TICKET_COMMENTS     : ~10,000  (2 per ticket)
+--
+-- city_id uses zero-padded 2-char format ('01'-'20') for FK consistency
+-- with all LPAD(UNIFORM(1,20,RANDOM()),2,'0') references in child tables.
+-- ============================================================
+
+USE DATABASE RAW;
+
+-- -------------------------------------------------------
+-- Truncate in reverse FK dependency order
+-- -------------------------------------------------------
+TRUNCATE TABLE RAW.ZOMATO_SUPPORT.TICKET_COMMENTS;
+TRUNCATE TABLE RAW.ZOMATO_SUPPORT.SUPPORT_TICKETS;
+TRUNCATE TABLE RAW.ZOMATO_PROMOTIONS.PROMO_REDEMPTIONS;
+TRUNCATE TABLE RAW.ZOMATO_ENGAGEMENT.REVIEWS;
+TRUNCATE TABLE RAW.ZOMATO_ENGAGEMENT.RATINGS;
+TRUNCATE TABLE RAW.ZOMATO_PAYMENTS.PAYMENTS;
+TRUNCATE TABLE RAW.ZOMATO_DELIVERY.DELIVERIES;
+TRUNCATE TABLE RAW.ZOMATO_TRANSACTIONAL.ORDER_ITEMS;
+TRUNCATE TABLE RAW.ZOMATO_TRANSACTIONAL.ORDERS;
+TRUNCATE TABLE RAW.ZOMATO_DELIVERY.DELIVERY_PARTNERS;
+TRUNCATE TABLE RAW.ZOMATO_CUSTOMERS.CUSTOMER_ADDRESSES;
+TRUNCATE TABLE RAW.ZOMATO_CUSTOMERS.CUSTOMERS;
+TRUNCATE TABLE RAW.ZOMATO_RESTAURANTS.MENU_ITEMS;
+TRUNCATE TABLE RAW.ZOMATO_RESTAURANTS.RESTAURANTS;
+TRUNCATE TABLE RAW.ZOMATO_PROMOTIONS.PROMOTIONS;
+TRUNCATE TABLE RAW.ZOMATO_PAYMENTS.PAYMENT_METHODS;
+TRUNCATE TABLE RAW.ZOMATO_GEOGRAPHY.AREAS;
+TRUNCATE TABLE RAW.ZOMATO_GEOGRAPHY.CITIES;
+
+-- -------------------------------------------------------
+-- CITIES - 20 rows (tier 1/2/3 Indian cities)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_GEOGRAPHY.CITIES VALUES
+('01', 'Mumbai',          'Maharashtra',    '1', TRUE,  TRUE,  '2015-01-01', CURRENT_TIMESTAMP()),
+('02', 'Delhi',           'Delhi',          '1', TRUE,  TRUE,  '2015-01-01', CURRENT_TIMESTAMP()),
+('03', 'Bengaluru',       'Karnataka',      '1', TRUE,  TRUE,  '2015-03-01', CURRENT_TIMESTAMP()),
+('04', 'Chennai',         'Tamil Nadu',     '1', TRUE,  TRUE,  '2015-06-01', CURRENT_TIMESTAMP()),
+('05', 'Hyderabad',       'Telangana',      '1', TRUE,  TRUE,  '2015-06-01', CURRENT_TIMESTAMP()),
+('06', 'Kolkata',         'West Bengal',    '1', TRUE,  TRUE,  '2015-09-01', CURRENT_TIMESTAMP()),
+('07', 'Pune',            'Maharashtra',    '2', FALSE, TRUE,  '2016-01-01', CURRENT_TIMESTAMP()),
+('08', 'Ahmedabad',       'Gujarat',        '2', FALSE, TRUE,  '2016-04-01', CURRENT_TIMESTAMP()),
+('09', 'Jaipur',          'Rajasthan',      '2', FALSE, TRUE,  '2016-06-01', CURRENT_TIMESTAMP()),
+('10', 'Lucknow',         'Uttar Pradesh',  '2', FALSE, TRUE,  '2016-06-01', CURRENT_TIMESTAMP()),
+('11', 'Surat',           'Gujarat',        '2', FALSE, TRUE,  '2017-01-01', CURRENT_TIMESTAMP()),
+('12', 'Nagpur',          'Maharashtra',    '2', FALSE, TRUE,  '2017-03-01', CURRENT_TIMESTAMP()),
+('13', 'Chandigarh',      'Punjab',         '2', FALSE, TRUE,  '2017-06-01', CURRENT_TIMESTAMP()),
+('14', 'Coimbatore',      'Tamil Nadu',     '2', FALSE, TRUE,  '2017-09-01', CURRENT_TIMESTAMP()),
+('15', 'Kochi',           'Kerala',         '2', FALSE, TRUE,  '2018-01-01', CURRENT_TIMESTAMP()),
+('16', 'Bhubaneswar',     'Odisha',         '3', FALSE, TRUE,  '2018-06-01', CURRENT_TIMESTAMP()),
+('17', 'Indore',          'Madhya Pradesh', '3', FALSE, TRUE,  '2018-06-01', CURRENT_TIMESTAMP()),
+('18', 'Visakhapatnam',   'Andhra Pradesh', '3', FALSE, TRUE,  '2019-01-01', CURRENT_TIMESTAMP()),
+('19', 'Patna',           'Bihar',          '3', FALSE, TRUE,  '2019-06-01', CURRENT_TIMESTAMP()),
+('20', 'Guwahati',        'Assam',          '3', FALSE, TRUE,  '2020-01-01', CURRENT_TIMESTAMP());
+
+-- -------------------------------------------------------
+-- AREAS - 5,000 rows (AREA000001 - AREA005000)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_GEOGRAPHY.AREAS
+SELECT
+    'AREA' || LPAD((ROW_NUMBER() OVER (ORDER BY SEQ4()))::VARCHAR, 6, '0'),
+    LPAD((UNIFORM(1, 20, RANDOM()))::VARCHAR, 2, '0'),
+    'Area_' || LPAD((SEQ4() + 1)::VARCHAR, 6, '0'),
+    LPAD((UNIFORM(100000, 999999, RANDOM()))::VARCHAR, 6, '0'),
+    CURRENT_TIMESTAMP()
+FROM TABLE(GENERATOR(ROWCOUNT => 5000));
+
+-- -------------------------------------------------------
+-- PAYMENT METHODS - 10 rows (static reference)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_PAYMENTS.PAYMENT_METHODS VALUES
+('PM01', 'upi',              'digital', 0.0050),
+('PM02', 'credit_card',      'card',    0.0200),
+('PM03', 'debit_card',       'card',    0.0150),
+('PM04', 'net_banking',      'digital', 0.0100),
+('PM05', 'wallet',           'digital', 0.0075),
+('PM06', 'cash_on_delivery', 'cash',    0.0000),
+('PM07', 'emi',              'credit',  0.0250),
+('PM08', 'pay_later',        'credit',  0.0300),
+('PM09', 'phonepe',          'digital', 0.0050),
+('PM10', 'amazon_pay',       'digital', 0.0060);
+
+-- -------------------------------------------------------
+-- PROMOTIONS - 5,000 rows (PRO00000001 - PRO00005000)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_PROMOTIONS.PROMOTIONS
+SELECT
+    'PRO' || LPAD((SEQ4() + 1)::VARCHAR, 8, '0'),
+    'CODE' || LPAD((SEQ4() + 1)::VARCHAR, 8, '0'),
+    'Promotion ' || (SEQ4() + 1)::VARCHAR,
+    'Synthetic promotion ' || (SEQ4() + 1)::VARCHAR,
+    CASE UNIFORM(1, 3, RANDOM())
+        WHEN 1 THEN 'percentage'
+        WHEN 2 THEN 'flat'
+        ELSE 'free_delivery'
+    END,
+    CASE UNIFORM(1, 3, RANDOM())
+        WHEN 1 THEN UNIFORM(10, 50, RANDOM())::NUMBER(10,2)
+        WHEN 2 THEN UNIFORM(20, 200, RANDOM())::NUMBER(10,2)
+        ELSE 0
+    END,
+    CASE UNIFORM(1, 2, RANDOM()) WHEN 1 THEN 'zomato' ELSE 'restaurant' END,
+    (UNIFORM(0, 300, RANDOM()))::NUMBER(10,2),
+    UNIFORM(100, 100000, RANDOM()),
+    UNIFORM(1, 5, RANDOM()),
+    (RANDOM() < 0.20)::BOOLEAN,
+    PARSE_JSON('null'),
+    DATEADD(DAY, UNIFORM(0, 1460, RANDOM()), '2020-01-01'::DATE),
+    DATEADD(DAY, UNIFORM(30, 180, RANDOM()),
+        DATEADD(DAY, UNIFORM(0, 1460, RANDOM()), '2020-01-01'::DATE)),
+    (RANDOM() < 0.70)::BOOLEAN,
+    DATEADD(SECOND, UNIFORM(0, 126144000, RANDOM()), '2020-01-01'::TIMESTAMP_NTZ),
+    DATEADD(SECOND, UNIFORM(0, 126144000, RANDOM()), '2020-01-01'::TIMESTAMP_NTZ)
+FROM TABLE(GENERATOR(ROWCOUNT => 5000));
+
+-- -------------------------------------------------------
+-- RESTAURANTS - 5,000 rows (RST00000001 - RST00005000)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_RESTAURANTS.RESTAURANTS
+SELECT
+    'RST' || LPAD((SEQ4() + 1)::VARCHAR, 8, '0'),
+    'Restaurant_' || LPAD((SEQ4() + 1)::VARCHAR, 8, '0'),
+    LPAD((UNIFORM(1, 20, RANDOM()))::VARCHAR, 2, '0'),
+    'AREA' || LPAD((UNIFORM(1, 5000, RANDOM()))::VARCHAR, 6, '0'),
+    CASE UNIFORM(1, 14, RANDOM())
+        WHEN 1  THEN 'north_indian'  WHEN 2  THEN 'south_indian'
+        WHEN 3  THEN 'chinese'       WHEN 4  THEN 'fast_food'
+        WHEN 5  THEN 'pizza'         WHEN 6  THEN 'biryani'
+        WHEN 7  THEN 'desserts'      WHEN 8  THEN 'beverages'
+        WHEN 9  THEN 'continental'   WHEN 10 THEN 'mughlai'
+        WHEN 11 THEN 'thai'          WHEN 12 THEN 'italian'
+        WHEN 13 THEN 'mexican'       ELSE 'other'
+    END,
+    CASE UNIFORM(1, 4, RANDOM())
+        WHEN 1 THEN 'platinum' WHEN 2 THEN 'gold'
+        WHEN 3 THEN 'silver'   ELSE 'bronze'
+    END,
+    (RANDOM() < 0.92)::BOOLEAN,
+    (RANDOM() < 0.85)::BOOLEAN,
+    (RANDOM() < 0.15)::BOOLEAN,
+    UNIFORM(10, 60, RANDOM()),
+    (UNIFORM(50, 300, RANDOM()))::NUMBER(10,2),
+    (UNIFORM(200, 1500, RANDOM()))::NUMBER(10,2),
+    CASE UNIFORM(1, 4, RANDOM()) WHEN 1 THEN 0.25 WHEN 2 THEN 0.22 WHEN 3 THEN 0.20 ELSE 0.18 END,
+    ROUND(NORMAL(4.0, 0.6, RANDOM()), 1),
+    UNIFORM(0, 50000, RANDOM()),
+    DATEADD(SECOND, UNIFORM(0, 157680000, RANDOM()), '2015-01-01'::TIMESTAMP_NTZ),
+    DATEADD(SECOND, UNIFORM(0, 126144000, RANDOM()), '2020-01-01'::TIMESTAMP_NTZ),
+    CURRENT_TIMESTAMP()
+FROM TABLE(GENERATOR(ROWCOUNT => 5000));
+
+-- -------------------------------------------------------
+-- MENU ITEMS - 25,000 rows (MI0000000001 - MI0000025000)
+-- 5 items per restaurant on average
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_RESTAURANTS.MENU_ITEMS
+SELECT
+    'MI' || LPAD((SEQ4() + 1)::VARCHAR, 10, '0'),
+    'RST' || LPAD((UNIFORM(1, 5000, RANDOM()))::VARCHAR, 8, '0'),
+    'Item_' || LPAD((SEQ4() + 1)::VARCHAR, 10, '0'),
+    CASE UNIFORM(1, 10, RANDOM())
+        WHEN 1 THEN 'Starter'     WHEN 2 THEN 'Main Course'
+        WHEN 3 THEN 'Dessert'     WHEN 4 THEN 'Beverage'
+        WHEN 5 THEN 'Snack'       WHEN 6 THEN 'Bread'
+        WHEN 7 THEN 'Rice'        WHEN 8 THEN 'Combo'
+        WHEN 9 THEN 'Salad'       ELSE 'Soup'
+    END,
+    (UNIFORM(50, 800, RANDOM()))::NUMBER(10,2),
+    (RANDOM() < 0.45)::BOOLEAN,
+    (RANDOM() < 0.90)::BOOLEAN,
+    CURRENT_TIMESTAMP()
+FROM TABLE(GENERATOR(ROWCOUNT => 25000));
+
+-- -------------------------------------------------------
+-- CUSTOMERS - 10,000 rows (C0000000001 - C0000010000)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_CUSTOMERS.CUSTOMERS
+SELECT
+    'C' || LPAD((SEQ4() + 1)::VARCHAR, 10, '0'),
+    'Customer_' || LPAD((SEQ4() + 1)::VARCHAR, 10, '0'),
+    'user' || (SEQ4() + 1)::VARCHAR || '@example.com',
+    '+91' || LPAD((UNIFORM(7000000000, 9999999999, RANDOM()))::VARCHAR, 10, '0'),
+    LPAD((UNIFORM(1, 20, RANDOM()))::VARCHAR, 2, '0'),
+    CASE UNIFORM(1, 6, RANDOM())
+        WHEN 1 THEN 'organic'    WHEN 2 THEN 'paid_social'
+        WHEN 3 THEN 'referral'   WHEN 4 THEN 'promo'
+        WHEN 5 THEN 'app_store'  ELSE 'unknown'
+    END,
+    CASE UNIFORM(1, 4, RANDOM())
+        WHEN 1 THEN 'premium'    WHEN 2 THEN 'regular'
+        WHEN 3 THEN 'occasional' ELSE 'new'
+    END,
+    (RANDOM() < 0.88)::BOOLEAN,
+    (RANDOM() < 0.25)::BOOLEAN,
+    DATEADD(SECOND, UNIFORM(0, 157680000, RANDOM()), '2015-01-01'::TIMESTAMP_NTZ),
+    DATEADD(SECOND, UNIFORM(0, 31536000,  RANDOM()), '2024-01-01'::TIMESTAMP_NTZ),
+    DATEADD(SECOND, UNIFORM(0, 126144000, RANDOM()), '2020-01-01'::TIMESTAMP_NTZ),
+    CURRENT_TIMESTAMP()
+FROM TABLE(GENERATOR(ROWCOUNT => 10000));
+
+-- -------------------------------------------------------
+-- CUSTOMER ADDRESSES - 15,000 rows (ADDR000000001 - ADDR000015000)
+-- ~1.5 addresses per customer on average
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_CUSTOMERS.CUSTOMER_ADDRESSES
+SELECT
+    'ADDR' || LPAD((SEQ4() + 1)::VARCHAR, 12, '0'),
+    'C' || LPAD((UNIFORM(1, 10000, RANDOM()))::VARCHAR, 10, '0'),
+    'House ' || UNIFORM(1, 999, RANDOM()) || ', Block ' ||
+        CHR(UNIFORM(65, 90, RANDOM())) || ', Locality ' ||
+        LPAD((UNIFORM(1, 1000, RANDOM()))::VARCHAR, 4, '0'),
+    'AREA' || LPAD((UNIFORM(1, 5000, RANDOM()))::VARCHAR, 6, '0'),
+    (RANDOM() < 0.60)::BOOLEAN,
+    CURRENT_TIMESTAMP()
+FROM TABLE(GENERATOR(ROWCOUNT => 15000));
+
+-- -------------------------------------------------------
+-- DELIVERY PARTNERS - 5,000 rows (DP000000001 - DP000005000)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_DELIVERY.DELIVERY_PARTNERS
+SELECT
+    'DP' || LPAD((SEQ4() + 1)::VARCHAR, 9, '0'),
+    'Partner_' || LPAD((SEQ4() + 1)::VARCHAR, 9, '0'),
+    '+91' || LPAD((UNIFORM(7000000000, 9999999999, RANDOM()))::VARCHAR, 10, '0'),
+    CASE UNIFORM(1, 4, RANDOM())
+        WHEN 1 THEN 'bicycle' WHEN 2 THEN 'motorcycle'
+        WHEN 3 THEN 'scooter' ELSE 'car'
+    END,
+    LPAD((UNIFORM(1, 20, RANDOM()))::VARCHAR, 2, '0'),
+    (RANDOM() < 0.90)::BOOLEAN,
+    (RANDOM() < 0.85)::BOOLEAN,
+    UNIFORM(0, 10000, RANDOM()),
+    ROUND(NORMAL(4.1, 0.5, RANDOM()), 2),
+    ROUND(UNIFORM(0.60, 0.98, RANDOM()), 3),
+    DATEADD(SECOND, UNIFORM(0, 157680000, RANDOM()), '2015-01-01'::TIMESTAMP_NTZ),
+    DATEADD(SECOND, UNIFORM(0, 126144000, RANDOM()), '2020-01-01'::TIMESTAMP_NTZ),
+    CURRENT_TIMESTAMP()
+FROM TABLE(GENERATOR(ROWCOUNT => 5000));
+
+-- -------------------------------------------------------
+-- ORDERS - 50,000 rows (ORD0000000000001 - ORD0000000050000)
+-- Status distribution: delivered 72%, cancelled 10%, refunded 5%,
+--                      out_for_delivery 8%, preparing 3%, accepted 2%
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_TRANSACTIONAL.ORDERS
+WITH base AS (
+    SELECT
+        SEQ4() + 1                              AS row_num,
+        RANDOM()                                AS r1,
+        UNIFORM(1, 10000, RANDOM())             AS cust_num,
+        UNIFORM(1, 5000,  RANDOM())             AS rest_num,
+        UNIFORM(1, 5000,  RANDOM())             AS dp_num,
+        UNIFORM(1, 20,    RANDOM())             AS city_num,
+        UNIFORM(0, 126144000, RANDOM())         AS sec_offset,
+        UNIFORM(50, 2000, RANDOM())             AS subtotal_raw,
+        UNIFORM(0, 100,   RANDOM())             AS promo_roll
+    FROM TABLE(GENERATOR(ROWCOUNT => 50000))
+)
+SELECT
+    'ORD' || LPAD(row_num::VARCHAR, 13, '0'),
+    'C'   || LPAD(cust_num::VARCHAR, 10, '0'),
+    'RST' || LPAD(rest_num::VARCHAR, 8, '0'),
+    CASE WHEN r1 < 0.82 THEN NULL
+         ELSE 'DP' || LPAD(dp_num::VARCHAR, 9, '0') END,
+    LPAD(city_num::VARCHAR, 2, '0'),
+    CASE WHEN promo_roll < 20
+         THEN 'PRO' || LPAD((UNIFORM(1, 5000, RANDOM()))::VARCHAR, 8, '0')
+         ELSE NULL END,
+    subtotal_raw::NUMBER(12,2),
+    CASE WHEN subtotal_raw < 150 THEN 40
+         WHEN subtotal_raw < 500 THEN 30
+         ELSE 0
+    END::NUMBER(8,2),
+    5::NUMBER(8,2),
+    CASE WHEN promo_roll < 20
+         THEN ROUND(subtotal_raw * UNIFORM(0.05, 0.30, RANDOM()), 2)
+         ELSE 0
+    END::NUMBER(10,2),
+    ROUND(subtotal_raw * 0.05, 2)::NUMBER(10,2),
+    (subtotal_raw
+     + CASE WHEN subtotal_raw < 150 THEN 40 WHEN subtotal_raw < 500 THEN 30 ELSE 0 END
+     + 5
+     - CASE WHEN promo_roll < 20 THEN ROUND(subtotal_raw * UNIFORM(0.05, 0.30, RANDOM()), 2) ELSE 0 END
+     + ROUND(subtotal_raw * 0.05, 2))::NUMBER(12,2),
+    CASE WHEN r1 < 0.72 THEN 'delivered'
+         WHEN r1 < 0.82 THEN 'cancelled'
+         WHEN r1 < 0.87 THEN 'refunded'
+         WHEN r1 < 0.95 THEN 'out_for_delivery'
+         WHEN r1 < 0.98 THEN 'preparing'
+         ELSE 'accepted'
+    END,
+    CASE WHEN r1 BETWEEN 0.72 AND 0.82
+         THEN CASE UNIFORM(1, 5, RANDOM())
+                  WHEN 1 THEN 'customer_cancelled'
+                  WHEN 2 THEN 'restaurant_rejected'
+                  WHEN 3 THEN 'no_delivery_partner'
+                  WHEN 4 THEN 'payment_failed'
+                  ELSE 'other'
+              END
+         ELSE NULL END,
+    (RANDOM() < 0.30)::BOOLEAN,
+    DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ),
+    CASE WHEN r1 < 0.82 THEN NULL
+         ELSE DATEADD(SECOND, UNIFORM(60, 300, RANDOM()),
+                      DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ)) END,
+    CASE WHEN r1 < 0.82 THEN NULL
+         ELSE DATEADD(SECOND, UNIFORM(900, 2700, RANDOM()),
+                      DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ)) END,
+    CASE WHEN r1 < 0.72 OR (r1 >= 0.82 AND r1 < 0.87)
+         THEN DATEADD(SECOND, UNIFORM(2100, 3600, RANDOM()),
+                      DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ))
+         ELSE NULL END,
+    CASE WHEN r1 < 0.72 OR (r1 >= 0.82 AND r1 < 0.87)
+         THEN DATEADD(SECOND, UNIFORM(2700, 5400, RANDOM()),
+                      DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ))
+         ELSE NULL END,
+    CASE WHEN r1 >= 0.72 AND r1 < 0.82
+         THEN DATEADD(SECOND, UNIFORM(60, 1800, RANDOM()),
+                      DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ))
+         ELSE NULL END,
+    DATEADD(SECOND, UNIFORM(2700, 86400, RANDOM()),
+            DATEADD(SECOND, sec_offset, '2020-01-01'::TIMESTAMP_NTZ)),
+    CURRENT_TIMESTAMP()
+FROM base;
+
+-- -------------------------------------------------------
+-- ORDER ITEMS - ~150,000 rows (3 items per order via CROSS JOIN)
+-- FK-consistent: order_id and restaurant_id pulled from ORDERS
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_TRANSACTIONAL.ORDER_ITEMS
+SELECT
+    'OI' || LPAD((ROW_NUMBER() OVER (ORDER BY o.order_id, g.item_num))::VARCHAR, 13, '0'),
+    o.order_id,
+    'MI' || LPAD((UNIFORM(1, 25000, RANDOM()))::VARCHAR, 10, '0'),
+    o.restaurant_id,
+    'Item_' || LPAD((UNIFORM(1, 25000, RANDOM()))::VARCHAR, 10, '0'),
+    CASE UNIFORM(1, 10, RANDOM())
+        WHEN 1 THEN 'Starter'     WHEN 2 THEN 'Main Course'
+        WHEN 3 THEN 'Dessert'     WHEN 4 THEN 'Beverage'
+        WHEN 5 THEN 'Snack'       WHEN 6 THEN 'Bread'
+        WHEN 7 THEN 'Rice'        WHEN 8 THEN 'Combo'
+        WHEN 9 THEN 'Salad'       ELSE 'Soup'
+    END,
+    (RANDOM() < 0.45)::BOOLEAN,
+    UNIFORM(1, 5, RANDOM()),
+    (UNIFORM(50, 800, RANDOM()))::NUMBER(10,2),
+    CASE WHEN RANDOM() < 0.20
+         THEN (UNIFORM(10, 100, RANDOM()))::NUMBER(8,2)
+         ELSE 0
+    END::NUMBER(8,2),
+    CURRENT_TIMESTAMP(),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_TRANSACTIONAL.ORDERS o
+CROSS JOIN (SELECT SEQ4() + 1 AS item_num FROM TABLE(GENERATOR(ROWCOUNT => 3))) g;
+
+-- -------------------------------------------------------
+-- DELIVERIES - ~42,500 rows
+-- Only delivered, out_for_delivery, refunded orders get deliveries
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_DELIVERY.DELIVERIES
+SELECT
+    'DLV' || LPAD((ROW_NUMBER() OVER (ORDER BY o.order_id))::VARCHAR, 13, '0'),
+    o.order_id,
+    COALESCE(o.delivery_partner_id,
+             'DP' || LPAD((UNIFORM(1, 5000, RANDOM()))::VARCHAR, 9, '0')),
+    CASE WHEN o.order_status = 'delivered'        THEN 'delivered'
+         WHEN o.order_status = 'out_for_delivery' THEN 'out_for_delivery'
+         ELSE 'delivered'
+    END,
+    CASE WHEN RANDOM() < 0.03
+         THEN CASE UNIFORM(1, 3, RANDOM())
+                  WHEN 1 THEN 'partner_unavailable'
+                  WHEN 2 THEN 'address_not_found'
+                  ELSE 'customer_unavailable'
+              END
+         ELSE NULL END,
+    DATEADD(SECOND, UNIFORM(30, 180, RANDOM()), o.ordered_at),
+    DATEADD(SECOND, UNIFORM(180, 480, RANDOM()), o.ordered_at),
+    DATEADD(SECOND, UNIFORM(600, 1800, RANDOM()), o.ordered_at),
+    COALESCE(o.picked_up_at,
+             DATEADD(SECOND, UNIFORM(1200, 2400, RANDOM()), o.ordered_at)),
+    COALESCE(o.delivered_at,
+             DATEADD(SECOND, UNIFORM(2400, 4800, RANDOM()), o.ordered_at)),
+    ROUND(UNIFORM(1.0, 25.0, RANDOM()), 2),
+    ROUND(UNIFORM(1.5, 35.0, RANDOM()), 2),
+    DATEADD(SECOND, UNIFORM(3000, 90000, RANDOM()), o.ordered_at),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_TRANSACTIONAL.ORDERS o
+WHERE o.order_status IN ('delivered', 'out_for_delivery', 'refunded');
+
+-- -------------------------------------------------------
+-- PAYMENTS - 50,000 rows (one payment per order)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_PAYMENTS.PAYMENTS
+SELECT
+    'PAY' || LPAD((ROW_NUMBER() OVER (ORDER BY o.order_id))::VARCHAR, 13, '0'),
+    o.order_id,
+    CASE WHEN o.order_status = 'cancelled' AND RANDOM() < 0.30   THEN 'failed'
+         WHEN o.order_status IN ('delivered','refunded') AND RANDOM() < 0.02 THEN 'refunded'
+         ELSE 'success'
+    END,
+    CASE UNIFORM(1, 10, RANDOM())
+        WHEN 1 THEN 'upi'              WHEN 2 THEN 'upi'
+        WHEN 3 THEN 'credit_card'      WHEN 4 THEN 'debit_card'
+        WHEN 5 THEN 'net_banking'      WHEN 6 THEN 'wallet'
+        WHEN 7 THEN 'cash_on_delivery' WHEN 8 THEN 'phonepe'
+        WHEN 9 THEN 'amazon_pay'       ELSE 'pay_later'
+    END,
+    o.total_amount,
+    ROUND(o.total_amount * UNIFORM(0.005, 0.025, RANDOM()), 2),
+    DATEADD(SECOND, UNIFORM(0, 300, RANDOM()), o.ordered_at),
+    DATEADD(DAY,    UNIFORM(1, 3, RANDOM()), o.ordered_at::DATE),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_TRANSACTIONAL.ORDERS o;
+
+-- -------------------------------------------------------
+-- RATINGS - ~25,200 rows (70% of delivered orders)
+-- ~36,000 delivered * 0.70 = ~25,200
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_ENGAGEMENT.RATINGS
+SELECT
+    'RTG' || LPAD((ROW_NUMBER() OVER (ORDER BY o.order_id))::VARCHAR, 13, '0'),
+    o.order_id,
+    o.customer_id,
+    o.restaurant_id,
+    o.delivery_partner_id,
+    UNIFORM(1, 5, RANDOM()),
+    UNIFORM(1, 5, RANDOM()),
+    ROUND((UNIFORM(1, 5, RANDOM()) + UNIFORM(1, 5, RANDOM())) / 2.0, 1),
+    DATEADD(SECOND, UNIFORM(1800, 172800, RANDOM()), o.delivered_at),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_TRANSACTIONAL.ORDERS o
+WHERE o.order_status = 'delivered'
+  AND RANDOM() < 0.70;
+
+-- -------------------------------------------------------
+-- REVIEWS - ~12,500 rows (50% of ratings leave a text review)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_ENGAGEMENT.REVIEWS
+SELECT
+    'RVW' || LPAD((ROW_NUMBER() OVER (ORDER BY r.rating_id))::VARCHAR, 13, '0'),
+    r.rating_id,
+    CASE UNIFORM(1, 5, RANDOM())
+        WHEN 1 THEN 'Great food and super fast delivery!'
+        WHEN 2 THEN 'Decent experience, could be better.'
+        WHEN 3 THEN 'Food arrived cold. Very disappointed.'
+        WHEN 4 THEN 'Loved it! Will definitely order again.'
+        ELSE 'Average meal, nothing special.'
+    END,
+    CASE WHEN r.overall_rating >= 4.0 THEN 'positive'
+         WHEN r.overall_rating >= 3.0 THEN 'neutral'
+         ELSE 'negative'
+    END,
+    DATEADD(SECOND, UNIFORM(0, 86400, RANDOM()), r.rated_at),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_ENGAGEMENT.RATINGS r
+WHERE RANDOM() < 0.50;
+
+-- -------------------------------------------------------
+-- PROMO REDEMPTIONS - ~10,000 rows (all orders that used a promo)
+-- 20% of 50,000 orders have promo_id set = ~10,000
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_PROMOTIONS.PROMO_REDEMPTIONS
+SELECT
+    'RDM' || LPAD((ROW_NUMBER() OVER (ORDER BY o.order_id))::VARCHAR, 13, '0'),
+    o.order_id,
+    o.promo_id,
+    o.customer_id,
+    o.promo_discount_amount,
+    CASE WHEN o.order_status = 'cancelled' AND RANDOM() < 0.15
+         THEN 'failed'
+         ELSE 'success'
+    END,
+    CASE WHEN o.order_status = 'cancelled' AND RANDOM() < 0.15
+         THEN 'promo_expired'
+         ELSE NULL
+    END,
+    o.ordered_at,
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_TRANSACTIONAL.ORDERS o
+WHERE o.promo_id IS NOT NULL;
+
+-- -------------------------------------------------------
+-- SUPPORT TICKETS - ~5,000 rows (~10% of orders)
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_SUPPORT.SUPPORT_TICKETS
+SELECT
+    'TKT' || LPAD((ROW_NUMBER() OVER (ORDER BY o.order_id))::VARCHAR, 12, '0'),
+    o.customer_id,
+    o.order_id,
+    'AGT' || LPAD((UNIFORM(1, 500, RANDOM()))::VARCHAR, 6, '0'),
+    CASE UNIFORM(1, 9, RANDOM())
+        WHEN 1 THEN 'missing_item'          WHEN 2 THEN 'wrong_item'
+        WHEN 3 THEN 'late_delivery'         WHEN 4 THEN 'damaged_food'
+        WHEN 5 THEN 'payment_issue'         WHEN 6 THEN 'refund_request'
+        WHEN 7 THEN 'account_issue'         WHEN 8 THEN 'restaurant_complaint'
+        ELSE 'other'
+    END,
+    CASE UNIFORM(1, 4, RANDOM())
+        WHEN 1 THEN 'open'        WHEN 2 THEN 'in_progress'
+        WHEN 3 THEN 'resolved'    ELSE 'closed'
+    END,
+    CASE UNIFORM(1, 3, RANDOM()) WHEN 1 THEN 'high' WHEN 2 THEN 'medium' ELSE 'low' END,
+    CASE WHEN RANDOM() < 0.80
+         THEN CASE UNIFORM(1, 4, RANDOM())
+                  WHEN 1 THEN 'full_refund'        WHEN 2 THEN 'partial_refund'
+                  WHEN 3 THEN 'replacement_sent'   ELSE 'no_action'
+              END
+         ELSE NULL END,
+    CASE WHEN RANDOM() < 0.75 THEN UNIFORM(1, 5, RANDOM()) ELSE NULL END,
+    o.ordered_at,
+    DATEADD(SECOND, UNIFORM(300, 7200, RANDOM()), o.ordered_at),
+    CASE WHEN RANDOM() < 0.80
+         THEN DATEADD(SECOND, UNIFORM(3600, 172800, RANDOM()), o.ordered_at)
+         ELSE NULL END,
+    DATEADD(SECOND, UNIFORM(3600, 259200, RANDOM()), o.ordered_at),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_TRANSACTIONAL.ORDERS o
+WHERE RANDOM() < 0.10;
+
+-- -------------------------------------------------------
+-- TICKET COMMENTS - ~10,000 rows (2 comments per ticket)
+-- comment 1 from customer, comment 2 from agent
+-- -------------------------------------------------------
+INSERT INTO RAW.ZOMATO_SUPPORT.TICKET_COMMENTS
+SELECT
+    'CMT' || LPAD((ROW_NUMBER() OVER (ORDER BY t.ticket_id, g.cmt_num))::VARCHAR, 13, '0'),
+    t.ticket_id,
+    CASE g.cmt_num WHEN 1 THEN 'customer' ELSE 'agent' END,
+    CASE UNIFORM(1, 6, RANDOM())
+        WHEN 1 THEN 'I have an issue with my recent order.'
+        WHEN 2 THEN 'We are looking into this and will get back to you shortly.'
+        WHEN 3 THEN 'Could you please provide your order details?'
+        WHEN 4 THEN 'The issue has been escalated to our team.'
+        WHEN 5 THEN 'Thank you for reaching out. We apologize for the inconvenience.'
+        ELSE 'Your request has been processed. Please allow 24 hours.'
+    END,
+    DATEADD(SECOND, g.cmt_num * UNIFORM(1800, 7200, RANDOM()), t.created_at),
+    CURRENT_TIMESTAMP()
+FROM RAW.ZOMATO_SUPPORT.SUPPORT_TICKETS t
+CROSS JOIN (SELECT SEQ4() + 1 AS cmt_num FROM TABLE(GENERATOR(ROWCOUNT => 2))) g;

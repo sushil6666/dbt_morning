@@ -91,10 +91,19 @@ models:
         description: Count of distinct customers in this segment combination.
         data_tests:
           - not_null
-      - name: avg_lifetime_spend
-        description: Average total ticket spend per customer in this segment.
+      - name: avg_lifetime_ticket_revenue
+        description: Average lifetime ticket revenue per customer in this segment.
         data_tests:
           - not_null
+      - name: avg_lifetime_in_park_spend
+        description: Average lifetime in-park spend per customer in this segment.
+        data_tests:
+          - not_null
+      - name: avg_lifetime_total_spend
+        description: Average lifetime spend per customer in this segment.
+        data_tests:
+          - not_null
+
       - name: avg_visits
         description: Average number of ticket purchases per customer in this segment.
         data_tests:

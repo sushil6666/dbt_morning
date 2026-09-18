@@ -545,35 +545,141 @@ external orchestrator in sequence.
 
 ## Configure and verify email notifications
 
-Model-owner emails are emitted only by job runs in deployment environments.
-Commands run interactively in Studio do not send these emails, even when the
-same test returns a warning.
+This demo uses native dbt **model notifications**. No alert package or custom
+email macro is required. Model-owner emails are emitted only by jobs running in
+deployment environments; interactive Studio commands do not send them.
 
-Prerequisites:
+### 1. Define the owner group in project code
 
-- commit and push this demo to the branch used by the deployment environment
-- use a deployment environment on a dbt release track
-- create or reuse a delivery job such as `alert_test`
-- have a dbt administrator enable model notifications for the account
+`models/on_error_continue_demo/groups.yml` defines the recipient:
 
-Then configure and verify:
+```yaml
+groups:
+  - name: payment_operations_demo
+    owner:
+      name: Theme Park Operations
+      email: analyticswithsushil@gmail.com
+```
 
-1. Open dbt Platform and select your profile in the lower-left sidebar.
-2. Open **Notification settings > Email notifications**.
-3. Under **Model notifications**, enable **Enable group/owner notifications on models**.
-4. Select **Warning** for tests. Leave model **Success** and test **Success**
-   disabled when you only want actionable quality alerts.
-5. Confirm the deployed `payment_operations_demo` group owns the review-queue model
-   and uses `analyticswithsushil@gmail.com`.
-6. Trigger the delivery job in its deployment environment.
-7. Wait for the job to finish and check the inbox and spam folder.
+The values under `config.meta` are documentation metadata only. They do not
+provision or send notifications.
 
-The warning test inherits the review-queue model's group. dbt can send an
-immediate email for each subscribed status category encountered during the run,
-followed by a consolidated end-of-run summary. For this demo, enabling model
-Success as well as test Warning produces a model-success email, a test-warning
-email, and the summary. Selecting only test Warning removes the model-success
-message, though the warning and final summary can both still arrive.
+### 2. Attach the group to the alert-owning model
+
+`models/on_error_continue_demo/schema.yml` assigns the review queue to the group
+and attaches the warning test:
+
+```yaml
+models:
+  - name: on_error_continue_payment_review_queue
+    config:
+      group: payment_operations_demo
+    data_tests:
+      - warn_if_rows_exist:
+          name: payment_events_requiring_review
+          config:
+            severity: warn
+            warn_if: ">0"
+            store_failures_as: table
+            tags: ["on_error_continue_alert"]
+```
+
+Tests inherit the group of their attached model, so the notification route is:
+
+```text
+payment_events_requiring_review
+    -> on_error_continue_payment_review_queue
+    -> payment_operations_demo
+    -> analyticswithsushil@gmail.com
+```
+
+### 3. Deploy the code to the job's Git branch
+
+Commit and push the demo before testing notifications. The validated deployment
+run used branch `feat/on-error-continue-alerting`. The scheduled job must use a
+branch containing these files; merge that branch to `main` before relying on a
+`main`-based schedule.
+
+A job running an older commit logs `NoNodesForSelectionCriteria`, performs no
+model or test work, and sends no model-owner warning.
+
+### 4. Configure the deployment environment and job
+
+Validated configuration:
+
+| Setting | Value |
+|---|---|
+| Environment | `stg_env` |
+| Engine | dbt v2 Stable |
+| Job | `alert_test` |
+| Job command | `dbt build --select on_error_continue_payment_events+` |
+
+The environment must use a dbt release track. The delivery command succeeds with
+one warning, which is intentional: model notifications respond to the warning
+node even though the overall job succeeds.
+
+### 5. Enable model notifications at the account level
+
+A dbt Account Admin must make model notifications available to account members.
+If **Enable group/owner notifications on models** is missing from Notification
+settings, ask an Account Admin to enable access to the feature.
+
+### 6. Configure email notification statuses
+
+For the user configuring notifications:
+
+1. Select the profile icon in the lower-left dbt Platform sidebar.
+2. Open **Notification settings**.
+3. Select **Email notifications**.
+4. Under **Model notifications**, enable
+   **Enable group/owner notifications on models**.
+5. Choose the model and test statuses to receive.
+6. Click **Save**.
+
+Configuration used when three emails were observed:
+
+| Resource | Status | Enabled |
+|---|---|---|
+| Models | Success | Yes |
+| Tests | Warning | Yes |
+
+That configuration produced:
+
+1. `dbt: Model completed successfully on job "alert_test" from environment "stg_env"`
+2. `dbt: Test warning on job "alert_test" from environment "stg_env"`
+3. `dbt: Summary of model and test executions on job "alert_test" from environment "stg_env"`
+
+The first email was generated by model **Success**, the second by test
+**Warning**, and the third was the consolidated end-of-run summary. The run
+artifact contained 27 unique dbt results—5 successful resources, 21 passing
+tests, and 1 warning—with no duplicate unique IDs. Repeated model names in the
+summary email do not indicate duplicate dbt execution.
+
+### 7. Recommended low-noise email settings
+
+For actionable quality alerts, use:
+
+| Resource | Status | Recommended setting |
+|---|---|---|
+| Models | Success | Off |
+| Models | Fails | On |
+| Tests | Success | Off |
+| Tests | Warning | On |
+| Tests | Fails | On |
+
+This removes the routine model-success email. dbt can still send the immediate
+test-warning email followed by the consolidated end-of-run summary.
+
+### 8. Verify the complete email path
+
+1. Confirm the job branch contains the demo.
+2. Trigger `alert_test` in `stg_env`.
+3. Confirm `payment_events_requiring_review` has status `warn`.
+4. Confirm the deployed review-queue model has group
+   `payment_operations_demo`.
+5. Check `analyticswithsushil@gmail.com`, including spam or filtered folders.
+6. If no email arrives, recheck the account-level feature access, the profile's
+   saved status subscriptions, and the deployment environment's release track.
 
 
 ## Configure Slack notifications

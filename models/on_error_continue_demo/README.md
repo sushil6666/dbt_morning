@@ -79,15 +79,31 @@ job.
 
 ## 7. Email model notifications
 
-The demo models belong to `payment_operations_demo`, owned by
-`analyticswithsushil@gmail.com`. Model-owner emails are sent only for jobs in a
-deployment environment; interactive Studio commands do not send them. Commit
-and push the demo to the deployment branch, create the delivery job, then open
-**Profile > Notification settings > Email notifications**. Enable
-**Enable group/owner notifications on models** and subscribe to **Warning** for
-tests. Leave model **Success** and test **Success** disabled when you only want
-actionable alerts. dbt can send the immediate test-warning email followed by a
-consolidated end-of-run summary.
+The demo uses native dbt model notifications; no email package is required.
+`payment_operations_demo` owns the review-queue model and routes notifications
+to `analyticswithsushil@gmail.com`. The attached warning test inherits that
+group.
+
+Required setup:
+
+1. Commit and push the demo to the deployment job's branch.
+2. Use a deployment environment on a dbt release track.
+3. Configure a job such as `alert_test` in `stg_env` with:
+
+   ```bash
+   dbt build --select on_error_continue_payment_events+
+   ```
+
+4. Have an Account Admin enable access to model notifications.
+5. Open **Profile > Notification settings > Email notifications**.
+6. Enable **Enable group/owner notifications on models**.
+7. Enable test **Warning** and save.
+
+When model **Success** and test **Warning** were both enabled, the validated job
+sent three emails: an immediate model-success email, an immediate test-warning
+email, and a consolidated end-of-run summary. For lower noise, disable model
+Success and test Success; keep model Fails, test Warning, and test Fails enabled.
+Interactive Studio commands do not send model-owner emails.
 
 
 ## 8. Restore the safe model state

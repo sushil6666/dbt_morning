@@ -1,66 +1,48 @@
 version: 2
 
-# ---------------------------------------------------------------------------
-# schema_demo_38_on_error.yml
-# ---------------------------------------------------------------------------
-# Documents the current dbt Fusion limitation for on_error: continue.
+# Demo commands:
+#   Safe build:
+#     dbt build --select demo_38_on_error_continue_upstream+
 #
-# KNOWN LIMITATION — dbt-fusion (dbt1701):
-#   on_error='continue' is not yet supported in dbt Fusion.
+#   Intentional upstream failure with downstream continuation:
+#     dbt build --select demo_38_on_error_continue_upstream+ --vars '{"demo_38_force_failure": true}'
 #
-# CURRENT PROJECT STATE:
-#   Both demo_38 models are disabled so normal builds do not execute an
-#   intentionally failing demo. The unsupported config is not set in this file,
-#   so the project stays warning-free under Fusion while the descriptions still
-#   document the current limitation.
-#
-# DAG:
-#   demo_38_on_error_continue_upstream   ->   demo_38_on_error_continue_downstream
-#
-# Historical result in this Fusion environment when you run the demo with
-# on_error: continue configured:
-#   dbt build --select demo_38_on_error_continue_upstream+
-#   - parse emits a warning that on_error: continue is not yet supported
-#   - upstream model errors intentionally
-#   - downstream model is still skipped
-#   - effective behavior matches the default skip_children semantics
-# ---------------------------------------------------------------------------
+# The second command is expected to finish non-zero because the upstream model
+# fails. The downstream model should still pass because the upstream model uses
+# on_error: continue and the child does not query the failed relation.
 
 models:
   - name: demo_38_on_error_continue_upstream
     description: >
-      Documents the current dbt Fusion limitation around `on_error: continue`.
-      This demo is disabled in normal project runs because it fails
-      intentionally at execution time with division by zero. If re-enabled and
-      configured with `on_error: continue`, it shows that Fusion currently
-      warns that the option is not yet supported and still skips downstream
-      children in practice.
+      Runnable dbt v2 Stable demonstration of `on_error: continue`. It builds
+      successfully by default. Set `demo_38_force_failure: true` to trigger a
+      division-by-zero error and verify that its independent child still runs.
     config:
-      enabled: false
+      enabled: true
       materialized: table
-      tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
+      on_error: continue
+      tags: ['macro_demo', 'demo_38', 'on_error', 'continue']
     columns:
       - name: customer_id
         description: Customer identifier from `dim_customers`.
         data_type: varchar
       - name: force_failure
-        description: Intentionally invalid numeric expression that forces runtime failure.
+        description: One in safe mode; an intentional division-by-zero expression in failure mode.
         data_type: number
 
   - name: demo_38_on_error_continue_downstream
     description: >
-      Downstream child retained specifically to prove current Fusion behavior.
-      This model is disabled alongside the upstream demo so normal builds do not
-      depend on an intentionally failing example. If re-enabled, it shows that
-      a child is still skipped after the parent fails in the current Fusion runtime.
+      Independent child that runs after the Demo 38 upstream model fails. Its
+      explicit DAG dependency proves continuation behavior, while reading
+      `dim_customers` directly avoids relying on the failed relation.
     config:
-      enabled: false
+      enabled: true
       materialized: table
-      tags: ['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
+      tags: ['macro_demo', 'demo_38', 'on_error', 'continue']
     columns:
       - name: customer_count
-        description: Row count of `dim_customers` used to show what this child would build.
+        description: Row count of `dim_customers`, proving that the child executed.
         data_type: number
       - name: demo_ran_at
-        description: Timestamp the downstream model would write if it were allowed to run.
+        description: Timestamp written when the downstream demo executes.
         data_type: timestamp_ntz

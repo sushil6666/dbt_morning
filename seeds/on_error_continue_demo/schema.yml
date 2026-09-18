@@ -1,0 +1,39 @@
+version: 2
+
+seeds:
+  - name: on_error_continue_payment_events
+    description: >
+      Synthetic payment-event feed for demonstrating runtime failures,
+      on_error continuation, and exception policies. EVT-1003 intentionally
+      contains a malformed amount and EVT-1004 is a negative refund.
+    config:
+      schema: on_error_continue_demo_seed
+      quote_columns: false
+      column_types:
+        event_id: varchar
+        customer_id: varchar
+        payment_amount_raw: varchar
+        currency: varchar
+        payment_status: varchar
+        event_timestamp: timestamp_ntz
+      tags: ['on_error_continue_demo']
+    columns:
+      - name: event_id
+        description: Unique payment event identifier.
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer associated with the payment event.
+        data_tests:
+          - not_null
+      - name: payment_amount_raw
+        description: Raw string amount retained so malformed input can be demonstrated.
+        data_tests:
+          - not_null
+      - name: payment_status
+        description: Gateway status for the event.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['approved', 'declined', 'refunded']

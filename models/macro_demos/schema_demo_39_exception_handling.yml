@@ -1,38 +1,17 @@
 version: 2
 
-# ---------------------------------------------------------------------------
-# schema_demo_39_exception_handling.yml
-# ---------------------------------------------------------------------------
-# This demo stays safe and buildable.
-#
-# The actual before/after repro examples for exception handling now live in:
-#   models/feature_test/
-#
-# That folder is disabled in dbt_project.yml and stores versioned `.example`
-# files so we can keep repro cases in git without breaking normal parse/build
-# runs.
-#
-# Start with:
-#   - models/feature_test/generic_test_config_not_dict.yml.example
-#   - models/feature_test/doc_variable_description.yml.example
-#   - models/feature_test/cycle_a.sql.example
-#   - models/feature_test/cycle_b.sql.example
-#
-# Workflow:
-#   1) copy an example into the real project file it references
-#   2) run the documented dbt command
-#   3) verify the newer runtime shows a clear dbt/Fusion error or warning
-#   4) revert the temporary repro change
-# ---------------------------------------------------------------------------
+# Set demo_39_exception_mode to safe (default), warn, or error. The warning mode
+# builds successfully with a Jinja warning; error mode intentionally fails with
+# a clear compiler exception.
 
 models:
   - name: demo_39_exception_handling
     description: >
-      Safe reference model for documenting how newer dbt/Fusion runtimes report
-      clearer errors. This checked-in model stays intentionally buildable and
-      returns a single row, while the concrete repro examples live under
-      `models/feature_test` as disabled example files.
+      Runnable demonstration of dbt's exceptions namespace. Use
+      `demo_39_exception_mode` to select safe, warn, or error behavior without
+      leaving an intentionally failing model in normal project builds.
     config:
+      enabled: true
       materialized: view
       tags: ['macro_demo', 'demo_39', 'exceptions']
     columns:
@@ -43,12 +22,15 @@ models:
           - not_null
           - unique
       - name: scenario_name
-        description: Short name for the documented demo scenario.
+        description: Short name for the exception-handling scenario.
         data_type: varchar
         data_tests:
           - not_null
       - name: demo_status
-        description: Shows that the checked-in demo is intentionally safe to build.
+        description: Selected exception mode—safe, warn, or error.
         data_type: varchar
         data_tests:
           - not_null
+          - accepted_values:
+              arguments:
+                values: ['safe', 'warn', 'error']

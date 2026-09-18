@@ -1,0 +1,6 @@
+event_id,customer_id,payment_amount_raw,currency,payment_status,event_timestamp
+EVT-1001,CUST-101,49.99,USD,approved,2026-09-18 09:00:01
+EVT-1002,CUST-102,125.50,USD,approved,2026-09-18 09:00:03
+EVT-1003,CUST-103,NOT_A_NUMBER,USD,approved,2026-09-18 09:00:05
+EVT-1004,CUST-104,-25.00,USD,refunded,2026-09-18 09:00:07
+EVT-1005,CUST-105,75.00,USD,declined,2026-09-18 09:00:09

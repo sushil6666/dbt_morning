@@ -1,28 +1,15 @@
 {{ config(
-    enabled=false,
+    enabled=true,
     materialized='table',
-    tags=['macro_demo', 'demo_38', 'on_error', 'continue', 'fusion_limitation']
+    tags=['macro_demo', 'demo_38', 'on_error', 'continue']
 ) }}
 
 /*
-  demo_38_on_error_continue_downstream
-  ------------------------------------
-  PURPOSE:
-    Downstream child retained specifically to prove current Fusion behavior.
+  Independent child used to demonstrate `on_error='continue'`.
 
-  CURRENT STATUS:
-    Disabled alongside the upstream demo so normal project builds do not depend
-    on an intentionally failing example.
-
-  WHAT THIS MODEL DEMONSTRATES:
-    - there is a real parent/child dependency via the `depends_on` ref below
-    - when the upstream model fails, Fusion still skips this child
-    - that confirms `on_error='continue'` is not active yet in this environment
-
-  WHY THIS QUERY STILL READS `dim_customers`:
-    If Fusion eventually supports continue semantics, this child could run
-    independently because it does not require the failed upstream relation to
-    exist in Snowflake.
+  The explicit dependency creates the upstream -> downstream DAG edge, while
+  this query reads dim_customers directly. That makes it safe for dbt to run
+  this model after the demo upstream model fails.
 */
 
 -- depends_on: {{ ref('demo_38_on_error_continue_upstream') }}

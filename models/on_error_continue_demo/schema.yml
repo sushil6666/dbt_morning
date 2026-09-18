@@ -1,0 +1,105 @@
+version: 2
+
+models:
+  - name: on_error_continue_payment_validation
+    description: >
+      Payment-event validator. It is safe by default and can be switched to a
+      strict cast that fails on malformed source data. `on_error: continue`
+      allows independent children to keep running after that failure.
+    config:
+      group: payment_operations_demo
+      on_error: continue
+    columns:
+      - name: event_id
+        description: Unique payment event identifier.
+        data_tests:
+          - not_null
+          - unique
+      - name: payment_amount
+        description: Parsed payment amount; null for malformed values in safe mode.
+
+  - name: on_error_continue_payment_review_queue
+    description: >
+      Independent queue of malformed and negative payment events. It reads the
+      raw seed directly, so alert evidence stays current even if strict payment
+      validation fails.
+    config:
+      group: payment_operations_demo
+    data_tests:
+      - warn_if_rows_exist:
+          name: payment_events_requiring_review
+          config:
+            severity: warn
+            warn_if: ">0"
+            store_failures_as: table
+            tags: ['on_error_continue_alert']
+    columns:
+      - name: event_id
+        description: Payment event requiring operator review.
+        data_tests:
+          - not_null
+          - unique
+      - name: payment_amount
+        description: Safely parsed amount; null when the raw amount is malformed.
+      - name: review_reason
+        description: Reason the payment event entered the review queue.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['malformed_amount', 'negative_amount']
+
+  - name: on_error_continue_incident_audit
+    description: >
+      Independent incident summary that continues after strict payment
+      validation fails, preserving operational visibility into the feed.
+    config:
+      group: payment_operations_demo
+    columns:
+      - name: total_events
+        description: Number of events received in the demo feed.
+        data_tests:
+          - not_null
+      - name: malformed_amount_events
+        description: Events whose amount cannot be parsed as a decimal.
+        data_tests:
+          - not_null
+      - name: negative_amount_events
+        description: Events with a parsed amount below zero.
+        data_tests:
+          - not_null
+      - name: declined_events
+        description: Events declined by the payment gateway.
+        data_tests:
+          - not_null
+      - name: audited_at
+        description: Timestamp when the incident audit model ran.
+        data_tests:
+          - not_null
+
+  - name: on_error_continue_feed_quality
+    description: >
+      One-row feed-quality summary demonstrating safe, warning, and compiler
+      error policies through the dbt exceptions namespace.
+    config:
+      group: payment_operations_demo
+    columns:
+      - name: total_events
+        description: Number of payment events evaluated.
+        data_tests:
+          - not_null
+      - name: events_requiring_review
+        description: Events with malformed or negative amounts.
+        data_tests:
+          - not_null
+      - name: review_rate
+        description: Share of events requiring operator review.
+        data_tests:
+          - not_null
+      - name: policy_mode
+        description: Active exception policy mode.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['safe', 'warn', 'error']

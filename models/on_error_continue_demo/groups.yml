@@ -1,0 +1,13 @@
+version: 2
+
+groups:
+  - name: payment_operations_demo
+    description: Owns the on-error-continue payment feed demo and its quality alerts.
+    owner:
+      name: Theme Park Operations
+      email: analyticswithsushil@gmail.com
+    config:
+      meta:
+        alert_test_tag: on_error_continue_alert
+        email_delivery: dbt_model_notifications
+        slack_delivery: dedicated_monitoring_job

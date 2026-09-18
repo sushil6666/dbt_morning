@@ -553,7 +553,7 @@ Prerequisites:
 
 - commit and push this demo to the branch used by the deployment environment
 - use a deployment environment on a dbt release track
-- create the delivery job described above; this project currently has no jobs
+- create or reuse a delivery job such as `alert_test`
 - have a dbt administrator enable model notifications for the account
 
 Then configure and verify:
@@ -561,15 +561,20 @@ Then configure and verify:
 1. Open dbt Platform and select your profile in the lower-left sidebar.
 2. Open **Notification settings > Email notifications**.
 3. Under **Model notifications**, enable **Enable group/owner notifications on models**.
-4. Select **Warning** for tests and save the settings.
+4. Select **Warning** for tests. Leave model **Success** and test **Success**
+   disabled when you only want actionable quality alerts.
 5. Confirm the deployed `payment_operations_demo` group owns the review-queue model
    and uses `analyticswithsushil@gmail.com`.
-6. Trigger `On Error Continue Demo - Delivery` in its deployment environment.
+6. Trigger the delivery job in its deployment environment.
 7. Wait for the job to finish and check the inbox and spam folder.
 
-The warning test inherits the review-queue model's group. dbt sends one
-consolidated owner email at the end of the job run for subscribed statuses; it
-does not send a separate email for every warning node.
+The warning test inherits the review-queue model's group. dbt can send an
+immediate email for each subscribed status category encountered during the run,
+followed by a consolidated end-of-run summary. For this demo, enabling model
+Success as well as test Warning produces a model-success email, a test-warning
+email, and the summary. Selecting only test Warning removes the model-success
+message, though the warning and final summary can both still arrive.
+
 
 ## Configure Slack notifications
 

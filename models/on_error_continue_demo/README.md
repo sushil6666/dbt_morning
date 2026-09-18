@@ -84,9 +84,11 @@ The demo models belong to `payment_operations_demo`, owned by
 deployment environment; interactive Studio commands do not send them. Commit
 and push the demo to the deployment branch, create the delivery job, then open
 **Profile > Notification settings > Email notifications**. Enable
-**Enable group/owner notifications on models**, subscribe to **Warning** for
-tests, save, and trigger the deployment job. dbt sends one consolidated email at
-the end of the run.
+**Enable group/owner notifications on models** and subscribe to **Warning** for
+tests. Leave model **Success** and test **Success** disabled when you only want
+actionable alerts. dbt can send the immediate test-warning email followed by a
+consolidated end-of-run summary.
+
 
 ## 8. Restore the safe model state
 

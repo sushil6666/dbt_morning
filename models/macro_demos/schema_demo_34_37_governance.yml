@@ -165,8 +165,10 @@ models:
       a contract and allow additive evolution with append_new_columns.
     config:
       materialized: incremental
+      on_schema_change: append_new_columns
       contract:
         enforced: true
+
       tags: ['macro_demo', 'demo_37', 'contract', 'incremental']
     columns:
       - name: sale_id

@@ -1,3 +1,7 @@
+-- Build the dbt-managed sample seed before reading it through the event-time source.
+-- depends_on: {{ ref('demo_25_sample_microbatch') }}
+
+
 {{
     config(
         materialized         = 'incremental',
